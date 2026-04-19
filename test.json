@@ -1,5 +1,51 @@
 [
   {
-    "url": "http://cpe.labo.danmaid.com"
+    "title": "RX-600KI",
+    "url": "http://cpe.labo.danmaid.com",
+    "hostname": "cpe.labo.danmaid.com",
+    "addresses": [
+      {
+        "family": "IPv4",
+        "address": "192.168.1.1"
+      },
+      {
+        "family": "IPv6",
+        "address": "2400:4052:2962:5e00:2eff:65ff:fe1a:d4ab"
+      },
+      {
+        "family": "IPv6",
+        "address": "fe80::2eff:65ff:fe1a:d4ab"
+      }
+    ],
+    "services": [
+      {
+        "protocol": "http"
+      }
+    ]
+  },
+  {
+    "title": "CML",
+    "url": "https://cml.danmaid.com",
+    "hostname": "cml.danmaid.com",
+    "addresses": [
+      {
+        "family": "IPv6",
+        "address": "2400:4052:2962:5e00::1"
+      },
+      {
+        "family": "IPv6",
+        "address": "fe80::e886:fa6:e43a:6da3"
+      }
+    ],
+    "services": [
+      {
+        "protocol": "https"
+      },
+      {
+        "title": "cockpit",
+        "protocol": "https",
+        "port": 9090
+      }
+    ]
   }
 ]

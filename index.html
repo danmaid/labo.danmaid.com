@@ -11,10 +11,41 @@
 
 <body>
   <table>
+    <thead>
+      <tr>
+        <style>
+          th {
+            text-align: start;
+          }
+        </style>
+        <th>Title</th>
+        <th>Service</th>
+        <th>Hostname</th>
+        <th>IPv4</th>
+        <th>IPv6</th>
+      </tr>
+    </thead>
     <tbody data-fetch="test.json">
       <template id="row">
         <tr>
-          <td><a target="_blank" data-bind-attr="href:url" data-bind="url"></a></td>
+          <td>
+            <span data-bind="title"></span>
+            <a target="_blank" data-bind-attr="href:url">link</a>
+          </td>
+          <td></td>
+          <td>
+            <span data-bind="hostname"></span>
+          </td>
+          <td>
+            <template id="ipv4">
+              <a target="_blank" data-bind-attr="href:url" data-bind="title">link</a>
+            </template>
+          </td>
+          <td>
+            <template id="ipv6">
+              <a target="_blank" data-bind-attr="href:url" data-bind="title">link</a>
+            </template>
+          </td>
         </tr>
       </template>
     </tbody>
@@ -29,18 +60,54 @@
       // data-bind
       const template = tbody.querySelector('template#row')
       for (const item of data) {
-        const tr = template.content.cloneNode(true)
-        tr.item = item
-        for (const el of tr.querySelectorAll('[data-bind]')) {
-          const key = el.getAttribute('data-bind')
-          el.textContent = item[key]
+        const fragment = template.content.cloneNode(true)
+        bindData(fragment, item)
+
+        // Address and Service to URL
+        const urls = composeUrls(item)
+        console.log('urls', urls)
+        // IPv4
+        const ipv4Template = fragment.querySelector('template#ipv4')
+        const ipv4Td = ipv4Template.parentElement
+        for (const url of urls.filter(u => u.family === 'IPv4')) {
+          console.log('url', url)
+          const fragment = ipv4Template.content.cloneNode(true)
+          bindData(fragment, url)
+          ipv4Td.appendChild(fragment)
         }
-        for (const el of tr.querySelectorAll('[data-bind-attr]')) {
+
+        // IPv6
+        const ipv6Template = fragment.querySelector('template#ipv6')
+        const ipv6Td = ipv6Template.parentElement
+        for (const url of urls.filter(u => u.family === 'IPv6')) {
+          const fragment = ipv6Template.content.cloneNode(true)
+          bindData(fragment, url)
+          ipv6Td.appendChild(fragment)
+        }
+
+        tbody.appendChild(fragment)
+      }
+
+      function bindData(fragment, data) {
+        fragment.data = data
+        for (const el of fragment.querySelectorAll('[data-bind]')) {
+          const key = el.getAttribute('data-bind')
+          if (data[key]) el.textContent = data[key]
+        }
+        for (const el of fragment.querySelectorAll('[data-bind-attr]')) {
           const def = el.getAttribute('data-bind-attr')
           const [target, key] = def.split(':', 2)
-          el.setAttribute(target, item[key])
+          if (data[key]) el.setAttribute(target, data[key])
         }
-        tbody.appendChild(tr)
+      }
+
+      /** @type {(item: {addresses?: {family: string, address: string}[], services?: {name?: string, protocol: string, port?: number}[]}) => unknown[]} */
+      function composeUrls(item) {
+        return item.addresses?.flatMap(addr => item.services?.map(service => {
+          const hostname = addr.family === 'IPv6' ? `[${addr.address}]` : addr.address
+          const port = service.port ? `:${service.port}` : ''
+          return { ...addr, ...service, url: `${service.protocol}://${hostname}${port}` }
+        })) || []
       }
     </script>
   </table>
