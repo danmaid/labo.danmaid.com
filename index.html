@@ -1,6 +1,49 @@
 <!doctype html>
 <html>
-  <body>
-    <h1>Hello GitHub Pages</h1>
-  </body>
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+  </style>
+</head>
+
+<body>
+  <table>
+    <tbody data-fetch="test.json">
+      <template id="row">
+        <tr>
+          <td><a target="_blank" data-bind-attr="href:url" data-bind="url"></a></td>
+        </tr>
+      </template>
+    </tbody>
+    <script type="module">
+      // data-fetch
+      /** @type {HTMLTableSectionElement} */
+      const tbody = document.querySelector('tbody[data-fetch]')
+      const url = tbody.getAttribute('data-fetch')
+      const r = await fetch(url)
+      const data = await r.json()
+      tbody.data = data
+      // data-bind
+      const template = tbody.querySelector('template#row')
+      for (const item of data) {
+        const tr = template.content.cloneNode(true)
+        tr.item = item
+        for (const el of tr.querySelectorAll('[data-bind]')) {
+          const key = el.getAttribute('data-bind')
+          el.textContent = item[key]
+        }
+        for (const el of tr.querySelectorAll('[data-bind-attr]')) {
+          const def = el.getAttribute('data-bind-attr')
+          const [target, key] = def.split(':', 2)
+          el.setAttribute(target, item[key])
+        }
+        tbody.appendChild(tr)
+      }
+    </script>
+  </table>
+</body>
+
 </html>
