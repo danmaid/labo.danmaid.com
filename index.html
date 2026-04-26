@@ -10,7 +10,7 @@
 </head>
 
 <body>
-  <table>
+  <table data-bind-fetch="test.json">
     <thead>
       <tr>
         <style>
@@ -25,14 +25,18 @@
         <th>IPv6</th>
       </tr>
     </thead>
-    <tbody data-fetch="test.json">
-      <template id="row">
+    <tbody>
+      <template id="row" data-bind-for>
         <tr>
           <td>
             <span data-bind="title"></span>
             <a target="_blank" data-bind-attr="href:url">link</a>
           </td>
-          <td></td>
+          <td>
+            <template data-bind-for="services">
+              <a target="_blank" data-bind-attr="href:url" data-bind="title">link</a>
+            </template>
+          </td>
           <td>
             <span data-bind="hostname"></span>
           </td>
@@ -50,7 +54,106 @@
       </template>
     </tbody>
     <script type="module">
+      const symbolData = Symbol('data')
+      const symbolFetch = Symbol('fetch')
+
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded')
+        processNodeAdded(document.body)
+        new MutationObserver((records, observer) => {
+          console.log('>>MutationObserver', records)
+          const children = [], attributes = new Set()
+          records.forEach(r => {
+            if (r.type === 'childList') return children.push(r)
+            if (r.type === 'attributes') return attributes.add(r.target)
+          })
+          for (const record of children) {
+            for (const node of record.removedNodes) processNodeRemoved(node)
+            for (const node of record.addedNodes) processNodeAdded(node)
+          }
+          for (const node of attributes) processNodeAdded(node)
+        }).observe(document, {
+          childList: true, attributes: true, subtree: true,
+          attributeFilter: ['data-bind']
+        })
+      })
+
+      function processNodeRemoved(el) {
+        console.log('>>processNodeRemoved', el)
+      }
+      function processNodeAdded(/** @type {Element} */ el) {
+        console.log('>>processNodeAdded', el)
+        for (const e of querySelfAndDescendants(el, '[data-bind-fetch]:not([data-bind])')) {
+          console.log('>>bindFetch', e)
+          e.toggleAttribute('data-bind', false)
+          fetch(e.getAttribute('data-bind-fetch')).then(async r => {
+            const d = await r.json()
+            e[symbolData] = d
+            e.toggleAttribute('data-bind', true)
+          })
+        }
+        for (const e of querySelfAndDescendants(el, '[data-bind]')) {
+          console.log('>>bind', e)
+        }
+      }
+      function querySelfAndDescendants(/** @type {Element} */ el, selector) {
+        const result = el.matches(selector) ? [el] : []
+        return result.concat([...el.querySelectorAll(selector)])
+      }
+
+      function bind(data, el = this) {
+        el.data = data
+      }
+      async function bindFetch(url, el = this) {
+        const r = await fetch(url)
+        const data = await r.json()
+        el[symbolFetch] = data
+      }
+      function bindFor(data,/** @type {HTMLTemplateElement} */ el = this) {
+        const parent = el.parentElement
+        for (const item of data) {
+          /** @type {DocumentFragment} */
+          const fragment = el.content.cloneNode(true)
+          const scopeRoot = (fragment.childNodes.length === 1 && fragment.firstElementChild)
+            || wrapContents(fragment)
+          bind(item, scopeRoot)
+          parent.appendChild(scopeRoot)
+        }
+      }
+      function wrapContents(/** @type {DocumentFragment} */fragment) {
+        const div = document.createElement('div')
+        div.style.display = 'contents'
+        div.appendChild(fragment)
+        return div
+      }
+      // data-bind-fetch
+      for (const el of document.querySelectorAll('[data-bind-fetch]')) {
+        const url = el.getAttribute('data-bind-fetch')
+        const r = await fetch(url)
+        const data = await r.json()
+        el.data = data
+      }
+
+      // data-bind-multiple
+      for (const el of document.querySelectorAll('[data-bind-multiple]')) {
+        const key = el.getAttribute('data-bind-multiple')
+        const template = el.querySelector('template')
+        const parent = template.parentElement
+        for (const item of (key ? el.data[key] : el.data) || []) {
+          const fragment = template.content.cloneNode(true)
+          // bindData(fragment, item)
+          parent.appendChild(fragment)
+        }
+      }
+    </script>
+    <!-- <script type="module">
       // data-fetch
+      for (const el of document.querySelectorAll('[data-fetch]')) {
+        const url = el.getAttribute('data-fetch')
+        const r = await fetch(url)
+        const data = await r.json()
+        el.data = data
+      }
       /** @type {HTMLTableSectionElement} */
       const tbody = document.querySelector('tbody[data-fetch]')
       const url = tbody.getAttribute('data-fetch')
@@ -88,6 +191,18 @@
         tbody.appendChild(fragment)
       }
 
+      for (const el of document.querySelectorAll('[data-bind-multiple]')) {
+        const key = el.getAttribute('data-bind-multiple')
+        const template = el.querySelector('template')
+        const parent = template.parentElement
+        el.closest
+        for (const item of el.data?.[key] || []) {
+          const fragment = template.content.cloneNode(true)
+          bindData(fragment, item)
+          parent.appendChild(fragment)
+        }
+      }
+
       function bindData(fragment, data) {
         fragment.data = data
         for (const el of fragment.querySelectorAll('[data-bind]')) {
@@ -109,7 +224,7 @@
           return { ...addr, ...service, url: `${service.protocol}://${hostname}${port}` }
         })) || []
       }
-    </script>
+    </script> -->
   </table>
 </body>
 
