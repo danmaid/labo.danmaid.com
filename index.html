@@ -6,18 +6,23 @@
     :root {
       color-scheme: dark;
     }
+
+    th {
+      text-align: start;
+    }
+
+    th,
+    td {
+      border-right: 1px solid;
+      border-bottom: 1px solid;
+    }
   </style>
 </head>
 
 <body>
-  <table data-bind-fetch="test.json">
+  <table>
     <thead>
       <tr>
-        <style>
-          th {
-            text-align: start;
-          }
-        </style>
         <th>Title</th>
         <th>Service</th>
         <th>Hostname</th>
@@ -26,206 +31,103 @@
       </tr>
     </thead>
     <tbody>
-      <template id="row" data-bind-for>
+      <template>
         <tr>
-          <td>
-            <span data-bind="title"></span>
-            <a target="_blank" data-bind-attr="href:url">link</a>
-          </td>
-          <td>
-            <template data-bind-for="services">
-              <a target="_blank" data-bind-attr="href:url" data-bind="title">link</a>
-            </template>
-          </td>
-          <td>
-            <span data-bind="hostname"></span>
-          </td>
-          <td>
-            <template id="ipv4">
-              <a target="_blank" data-bind-attr="href:url" data-bind="title">link</a>
-            </template>
-          </td>
-          <td>
-            <template id="ipv6">
-              <a target="_blank" data-bind-attr="href:url" data-bind="title">link</a>
-            </template>
-          </td>
+          <td data-text="title"></td>
+          <td><dm-service data-bind></dm-service></td>
+          <td><dm-hostname data-bind></dm-hostname></td>
+          <td><dm-ip data-bind family="ipv4"></dm-ip></td>
+          <td><dm-ip data-bind family="ipv6"></dm-ip></td>
         </tr>
       </template>
     </tbody>
-    <script type="module">
-      const symbolData = Symbol('data')
-      const symbolFetch = Symbol('fetch')
-
-      document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOMContentLoaded')
-        processNodeAdded(document.body)
-        new MutationObserver((records, observer) => {
-          console.log('>>MutationObserver', records)
-          const children = [], attributes = new Set()
-          records.forEach(r => {
-            if (r.type === 'childList') return children.push(r)
-            if (r.type === 'attributes') return attributes.add(r.target)
-          })
-          for (const record of children) {
-            for (const node of record.removedNodes) processNodeRemoved(node)
-            for (const node of record.addedNodes) processNodeAdded(node)
-          }
-          for (const node of attributes) processNodeAdded(node)
-        }).observe(document, {
-          childList: true, attributes: true, subtree: true,
-          attributeFilter: ['data-bind']
-        })
-      })
-
-      function processNodeRemoved(el) {
-        console.log('>>processNodeRemoved', el)
-      }
-      function processNodeAdded(/** @type {Element} */ el) {
-        console.log('>>processNodeAdded', el)
-        for (const e of querySelfAndDescendants(el, '[data-bind-fetch]:not([data-bind])')) {
-          console.log('>>bindFetch', e)
-          e.toggleAttribute('data-bind', false)
-          fetch(e.getAttribute('data-bind-fetch')).then(async r => {
-            const d = await r.json()
-            e[symbolData] = d
-            e.toggleAttribute('data-bind', true)
-          })
-        }
-        for (const e of querySelfAndDescendants(el, '[data-bind]')) {
-          console.log('>>bind', e)
-        }
-      }
-      function querySelfAndDescendants(/** @type {Element} */ el, selector) {
-        const result = el.matches(selector) ? [el] : []
-        return result.concat([...el.querySelectorAll(selector)])
-      }
-
-      function bind(data, el = this) {
-        el.data = data
-      }
-      async function bindFetch(url, el = this) {
-        const r = await fetch(url)
-        const data = await r.json()
-        el[symbolFetch] = data
-      }
-      function bindFor(data,/** @type {HTMLTemplateElement} */ el = this) {
-        const parent = el.parentElement
-        for (const item of data) {
-          /** @type {DocumentFragment} */
-          const fragment = el.content.cloneNode(true)
-          const scopeRoot = (fragment.childNodes.length === 1 && fragment.firstElementChild)
-            || wrapContents(fragment)
-          bind(item, scopeRoot)
-          parent.appendChild(scopeRoot)
-        }
-      }
-      function wrapContents(/** @type {DocumentFragment} */fragment) {
-        const div = document.createElement('div')
-        div.style.display = 'contents'
-        div.appendChild(fragment)
-        return div
-      }
-      // data-bind-fetch
-      for (const el of document.querySelectorAll('[data-bind-fetch]')) {
-        const url = el.getAttribute('data-bind-fetch')
-        const r = await fetch(url)
-        const data = await r.json()
-        el.data = data
-      }
-
-      // data-bind-multiple
-      for (const el of document.querySelectorAll('[data-bind-multiple]')) {
-        const key = el.getAttribute('data-bind-multiple')
-        const template = el.querySelector('template')
-        const parent = template.parentElement
-        for (const item of (key ? el.data[key] : el.data) || []) {
-          const fragment = template.content.cloneNode(true)
-          // bindData(fragment, item)
-          parent.appendChild(fragment)
-        }
-      }
-    </script>
-    <!-- <script type="module">
-      // data-fetch
-      for (const el of document.querySelectorAll('[data-fetch]')) {
-        const url = el.getAttribute('data-fetch')
-        const r = await fetch(url)
-        const data = await r.json()
-        el.data = data
-      }
-      /** @type {HTMLTableSectionElement} */
-      const tbody = document.querySelector('tbody[data-fetch]')
-      const url = tbody.getAttribute('data-fetch')
-      const r = await fetch(url)
-      const data = await r.json()
-      tbody.data = data
-      // data-bind
-      const template = tbody.querySelector('template#row')
-      for (const item of data) {
-        const fragment = template.content.cloneNode(true)
-        bindData(fragment, item)
-
-        // Address and Service to URL
-        const urls = composeUrls(item)
-        console.log('urls', urls)
-        // IPv4
-        const ipv4Template = fragment.querySelector('template#ipv4')
-        const ipv4Td = ipv4Template.parentElement
-        for (const url of urls.filter(u => u.family === 'IPv4')) {
-          console.log('url', url)
-          const fragment = ipv4Template.content.cloneNode(true)
-          bindData(fragment, url)
-          ipv4Td.appendChild(fragment)
-        }
-
-        // IPv6
-        const ipv6Template = fragment.querySelector('template#ipv6')
-        const ipv6Td = ipv6Template.parentElement
-        for (const url of urls.filter(u => u.family === 'IPv6')) {
-          const fragment = ipv6Template.content.cloneNode(true)
-          bindData(fragment, url)
-          ipv6Td.appendChild(fragment)
-        }
-
-        tbody.appendChild(fragment)
-      }
-
-      for (const el of document.querySelectorAll('[data-bind-multiple]')) {
-        const key = el.getAttribute('data-bind-multiple')
-        const template = el.querySelector('template')
-        const parent = template.parentElement
-        el.closest
-        for (const item of el.data?.[key] || []) {
-          const fragment = template.content.cloneNode(true)
-          bindData(fragment, item)
-          parent.appendChild(fragment)
-        }
-      }
-
-      function bindData(fragment, data) {
-        fragment.data = data
-        for (const el of fragment.querySelectorAll('[data-bind]')) {
-          const key = el.getAttribute('data-bind')
-          if (data[key]) el.textContent = data[key]
-        }
-        for (const el of fragment.querySelectorAll('[data-bind-attr]')) {
-          const def = el.getAttribute('data-bind-attr')
-          const [target, key] = def.split(':', 2)
-          if (data[key]) el.setAttribute(target, data[key])
-        }
-      }
-
-      /** @type {(item: {addresses?: {family: string, address: string}[], services?: {name?: string, protocol: string, port?: number}[]}) => unknown[]} */
-      function composeUrls(item) {
-        return item.addresses?.flatMap(addr => item.services?.map(service => {
-          const hostname = addr.family === 'IPv6' ? `[${addr.address}]` : addr.address
-          const port = service.port ? `:${service.port}` : ''
-          return { ...addr, ...service, url: `${service.protocol}://${hostname}${port}` }
-        })) || []
-      }
-    </script> -->
   </table>
+  <script>
+    /**
+           * @typedef {Object} Item
+           * @property {string} title
+           * @property {string} hostname
+           * @property {{ family: "IPv4" | "IPv6", address: string }[]} addresses
+           * @property {{ protocol: string, service?: string, port?: number }[]} listeners
+           */
+    const url = 'test.json'
+    fetch(url).then(async r => {
+      /** @type {Item[]} */
+      const items = await r.json()
+      const template = document.querySelector('template')
+      for (const item of items) {
+        const fragment = template.content.cloneNode(true)
+        for (const el of fragment.querySelectorAll('[data-text]')) {
+          const key = el.getAttribute('data-text')
+          if (item[key]) el.textContent = item[key]
+        }
+        for (const el of fragment.querySelectorAll('[data-bind]')) {
+          el.data = item
+        }
+        template.parentElement.appendChild(fragment)
+      }
+      template.remove()
+    })
+
+    class DmBindable extends HTMLElement {
+      set data(data) {
+        this._data = data
+        this.render()
+      }
+      get data() { return this._data }
+      constructor() {
+        super()
+        this.render()
+      }
+
+      render() { }
+    }
+
+    customElements.define('dm-service', class extends DmBindable {
+      get services() {
+        return this.data.listeners?.map(l => l.service || l.protocol || l.port)
+      }
+      render() {
+        this.textContent = this.services
+      }
+    })
+
+    customElements.define('dm-ip', class extends DmBindable {
+      get family() {
+        return this.getAttribute('family').toLowerCase()
+      }
+      get addresses() {
+        return this.data.addresses?.filter(v => v.family.toLowerCase() === this.family)
+          .map(v => v.address)
+      }
+      get listeners() {
+        return this.data.listeners
+      }
+      getLinks(addr) {
+        const a = this.family === 'ipv6' ? `[${addr}]` : addr
+        return this.listeners.map(v => `<a href="${v.protocol}://${a}:${v.port}">${v.service}</a>`)
+      }
+      render() {
+        this.innerHTML = this.addresses?.map(v => `<div>${v}${this.getLinks(v)}</div>`).join('')
+      }
+    })
+
+    customElements.define('dm-hostname', class extends DmBindable {
+      get hostname() {
+        return this.data.hostname
+      }
+      get listeners() {
+        return this.data.listeners
+      }
+      get links() {
+        return this.listeners.map(v => `<a href="${v.protocol}://${this.hostname}:${v.port}">${v.service}</a>`)
+      }
+      render() {
+        this.innerHTML = `<div>${this.hostname}${this.links}</div>`
+      }
+    })
+
+  </script>
 </body>
 
 </html>
