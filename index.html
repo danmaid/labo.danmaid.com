@@ -108,7 +108,7 @@
         return this.listeners.map(v => `<a href="${v.protocol}://${a}:${v.port}" target="_blank">${v.service}</a>`)
       }
       render() {
-        this.innerHTML = this.addresses?.map(v => `<div>${v}${this.getLinks(v)}</div>`).join('')
+        this.innerHTML = this.addresses?.map(v => `<div>${v} ${this.getLinks(v)}</div>`).join('')
       }
     })
 
