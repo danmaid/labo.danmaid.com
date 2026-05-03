@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSH Broker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.min.css">
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: rgba(255, 251, 245, 0.92);
+      --line: #d6c9b2;
+      --ink: #1f2a2f;
+      --muted: #6a6e67;
+      --accent: #006a6a;
+      --accent2: #d6673a;
+      --ok: #2d7a47;
+      --bad: #a33636;
+      --sidebar: 320px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: "IBM Plex Sans JP", "Hiragino Sans", sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left,  rgba(214,103,58,.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(0,106,106,.16),  transparent 30%),
+        linear-gradient(180deg, #fbf7f0, var(--bg));
+    }
+
+    /* ── sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar);
+      min-width: var(--sidebar);
+      height: 100%;
+      overflow-y: auto;
+      padding: 14px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .sidebar-title {
+      font-family: "Azeret Mono", "Consolas", monospace;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 12px;
+    }
+    .section {
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section:last-child { border-bottom: 0; margin-bottom: 0; }
+    .section-title {
+      font-family: "Azeret Mono", "Consolas", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    input {
+      display: block;
+      width: 100%;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255,255,255,.82);
+      color: var(--ink);
+      font: inherit;
+    }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .buttons { display: flex; flex-direction: column; gap: 8px; }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 100ms ease, opacity 100ms ease;
+      background: linear-gradient(135deg, var(--accent), #004f52);
+      text-align: left;
+    }
+    button.secondary { background: linear-gradient(135deg, var(--accent2), #aa4822); }
+    button.ghost      { background: linear-gradient(135deg, #8f8d84, #6f6b63); }
+    button:hover  { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button:disabled { opacity: .45; cursor: default; transform: none; }
+    .meta {
+      font: 11px/1.5 "Azeret Mono", "Consolas", monospace;
+      color: var(--muted);
+      word-break: break-all;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    /* ── workspace ───────────────────────────────────────────── */
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .term-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 12px 0;
+    }
+    .term-wrap.mirror {
+      flex: 0 0 220px;
+      padding-bottom: 12px;
+    }
+
+    .term-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .term-head strong {
+      font-family: "Azeret Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+    .status {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(31,42,47,.08);
+      color: var(--muted);
+    }
+    .status.ok  { background: rgba(45,122,71,.14);  color: var(--ok); }
+    .status.bad { background: rgba(163,54,54,.14); color: var(--bad); }
+
+    .xterm-container {
+      flex: 1;
+      min-height: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #171917;
+      padding: 6px;
+    }
+    .xterm-container .xterm { height: 100%; }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 0 12px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- ── sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-title">SSH Broker</div>
+
+    <div class="section">
+      <div class="section-title">Broker</div>
+      <label>REST Base URL
+        <input id="baseUrl" value="">
+      </label>
+      <label>Auth Token
+        <input id="authToken" value="dev-token">
+      </label>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SSH Target</div>
+      <label>Host <input id="host" value="127.0.0.1"></label>
+      <div class="two">
+        <label>Port <input id="port" type="number" value="22"></label>
+        <label>TTL (sec) <input id="ttl" type="number" value="90"></label>
+      </div>
+      <label>Username <input id="username" value="demo"></label>
+      <label>Password <input id="password" type="password" value="demo-password"></label>
+    </div>
+
+    <div class="section buttons">
+      <button id="createBtn">1. Create + Attach Writer</button>
+      <button id="resizeBtn" class="secondary" disabled>2. Sync Resize to PTY</button>
+      <button id="readonlyBtn" class="secondary" disabled>3. Attach Readonly Mirror</button>
+      <button id="deleteBtn" class="ghost" disabled>4. Delete Session</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">State</div>
+      <pre id="metaLog" class="meta"></pre>
+    </div>
+  </aside>
+
+  <!-- ── workspace ──────────────────────────────────── -->
+  <main class="workspace">
+    <div class="term-wrap">
+      <div class="term-head">
+        <strong>Writer Terminal</strong>
+        <span id="writerStatus" class="status">idle</span>
+      </div>
+      <div id="writerContainer" class="xterm-container"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="term-wrap mirror">
+      <div class="term-head">
+        <strong>Readonly Mirror</strong>
+        <span id="readonlyStatus" class="status">idle</span>
+      </div>
+      <div id="readonlyContainer" class="xterm-container"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    // ── state ────────────────────────────────────────────────────
+    const state = { sessionId: "", writerWs: null, readonlyWs: null };
+
+    // ── element refs ─────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const el = {
+      baseUrl:        $("baseUrl"),
+      authToken:      $("authToken"),
+      host:           $("host"),
+      port:           $("port"),
+      ttl:            $("ttl"),
+      username:       $("username"),
+      password:       $("password"),
+      metaLog:        $("metaLog"),
+      createBtn:      $("createBtn"),
+      resizeBtn:      $("resizeBtn"),
+      readonlyBtn:    $("readonlyBtn"),
+      deleteBtn:      $("deleteBtn"),
+      writerStatus:   $("writerStatus"),
+      readonlyStatus: $("readonlyStatus"),
+    };
+    el.baseUrl.value = window.location.origin;
+
+    // ── xterm setup ──────────────────────────────────────────────
+    const commonTheme = { background: "#171917" };
+
+    const writerTerm = new Terminal({
+      cursorBlink: true,
+      fontFamily: '"Cascadia Code", "Fira Code", "Consolas", monospace',
+      fontSize: 14,
+      theme: { ...commonTheme, foreground: "#e4edc8", cursor: "#f0c674", selectionBackground: "#3d5038" },
+      scrollback: 3000,
+      convertEol: true,
+    });
+    const readonlyTerm = new Terminal({
+      disableStdin: true,
+      fontFamily: '"Cascadia Code", "Fira Code", "Consolas", monospace',
+      fontSize: 13,
+      theme: { ...commonTheme, foreground: "#99b8c8", cursor: "transparent" },
+      scrollback: 1000,
+      convertEol: true,
+    });
+
+    const writerFit   = new FitAddon.FitAddon();
+    const readonlyFit = new FitAddon.FitAddon();
+    writerTerm.loadAddon(writerFit);
+    readonlyTerm.loadAddon(readonlyFit);
+
+    writerTerm.open($("writerContainer"));
+    readonlyTerm.open($("readonlyContainer"));
+    writerFit.fit();
+    readonlyFit.fit();
+
+    // Forward keystrokes from writer terminal to the SSH PTY.
+    writerTerm.onData(data => {
+      if (state.writerWs && state.writerWs.readyState === WebSocket.OPEN) {
+        state.writerWs.send(data);
+      }
+    });
+
+    // Re-fit on resize. The "2. Sync Resize" button sends the new
+    // dimensions to the server because PTY resize is a control-plane
+    // action, not something the WebSocket layer handles automatically.
+    const resizeObserver = new ResizeObserver(() => {
+      writerFit.fit();
+      readonlyFit.fit();
+    });
+    resizeObserver.observe($("writerContainer"));
+    resizeObserver.observe($("readonlyContainer"));
+
+    // ── helpers ──────────────────────────────────────────────────
+    function log(msg, obj) {
+      const body = obj === undefined ? msg : `${msg}\n${JSON.stringify(obj, null, 2)}`;
+      el.metaLog.textContent = `${new Date().toLocaleTimeString()} ${body}\n\n${el.metaLog.textContent}`.trim();
+    }
+
+    function setStatus(el, text, kind) {
+      el.textContent = text;
+      el.className   = `status ${kind || ""}`.trim();
+    }
+
+    function syncButtons() {
+      const has = Boolean(state.sessionId);
+      el.resizeBtn.disabled   = !has;
+      el.readonlyBtn.disabled = !has;
+      el.deleteBtn.disabled   = !has;
+    }
+
+    function authHeaders() {
+      return {
+        "Authorization": `Bearer ${el.authToken.value.trim()}`,
+        "Content-Type": "application/json",
+      };
+    }
+
+    async function api(path, init) {
+      const base = el.baseUrl.value.replace(/\/$/, "");
+      const res  = await fetch(base + path, init);
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : null;
+      if (!res.ok) throw new Error(json?.error ?? res.statusText);
+      return json;
+    }
+
+    function closeWs(ws) {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+    }
+
+    function openWs(url, term, statusEl, label) {
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(url);
+        ws.binaryType = "arraybuffer";
+
+        ws.addEventListener("open", () => {
+          setStatus(statusEl, "attached", "ok");
+          term.writeln(`\r\n\x1b[32m[${label} attached]\x1b[0m`);
+          resolve(ws);
+        }, { once: true });
+
+        ws.addEventListener("message", ev => {
+          const bytes = typeof ev.data === "string"
+            ? ev.data
+            : new TextDecoder().decode(ev.data);
+          term.write(bytes);
+        });
+
+        ws.addEventListener("close", () => {
+          setStatus(statusEl, "closed", "bad");
+          term.writeln(`\r\n\x1b[31m[${label} disconnected]\x1b[0m`);
+        });
+
+        ws.addEventListener("error", () => {
+          setStatus(statusEl, "error", "bad");
+          if (ws.readyState !== WebSocket.OPEN) reject(new Error(`${label}: connect failed`));
+        }, { once: true });
+      });
+    }
+
+    // ── actions ──────────────────────────────────────────────────
+    async function createSession() {
+      closeWs(state.writerWs);
+      closeWs(state.readonlyWs);
+      state.sessionId = "";
+      writerTerm.reset();
+      readonlyTerm.reset();
+      setStatus(el.writerStatus,   "creating…", "");
+      setStatus(el.readonlyStatus, "idle", "");
+      syncButtons();
+
+      const result = await api("/sessions", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          host:     el.host.value.trim(),
+          port:     Number(el.port.value),
+          username: el.username.value.trim(),
+          password: el.password.value,
+          pty_cols: writerTerm.cols,
+          pty_rows: writerTerm.rows,
+        }),
+      });
+
+      state.sessionId = result.session_id;
+      log("session created", result);
+      state.writerWs = await openWs(result.writer_ws_url, writerTerm, el.writerStatus, "writer");
+      syncButtons();
+    }
+
+    async function resizeSession() {
+      // FitAddon has already updated writerTerm.cols / rows from the DOM.
+      const cols = writerTerm.cols;
+      const rows = writerTerm.rows;
+      const result = await api(`/sessions/${state.sessionId}/resize`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ cols, rows }),
+      });
+      log(`resize → ${cols}×${rows}`, result);
+    }
+
+    async function attachReadonly() {
+      readonlyTerm.reset();
+      readonlyTerm.writeln("\x1b[33mrequesting readonly token…\x1b[0m");
+      const result = await api(`/sessions/${state.sessionId}/attach-tokens`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ mode: "readonly", ttl_seconds: Number(el.ttl.value) }),
+      });
+      log("readonly token issued", result);
+      closeWs(state.readonlyWs);
+      state.readonlyWs = await openWs(result.ws_url, readonlyTerm, el.readonlyStatus, "readonly");
+    }
+
+    async function deleteSession() {
+      const result = await api(`/sessions/${state.sessionId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${el.authToken.value.trim()}` },
+      });
+      log("session deleted", result);
+      closeWs(state.writerWs);
+      closeWs(state.readonlyWs);
+      state.sessionId = "";
+      syncButtons();
+    }
+
+    // ── button wiring ────────────────────────────────────────────
+    async function wrap(fn, statusEl) {
+      try {
+        await fn();
+      } catch (err) {
+        log("error", { message: err.message });
+        if (statusEl) setStatus(statusEl, "error", "bad");
+      }
+    }
+
+    el.createBtn.addEventListener("click",   () => wrap(createSession,  el.writerStatus));
+    el.resizeBtn.addEventListener("click",   () => wrap(resizeSession));
+    el.readonlyBtn.addEventListener("click", () => wrap(attachReadonly, el.readonlyStatus));
+    el.deleteBtn.addEventListener("click",   () => wrap(deleteSession));
+
+    // ── boot ─────────────────────────────────────────────────────
+    syncButtons();
+    writerTerm.writeln("\x1b[2mFill in SSH Target on the left, then press\x1b[0m \x1b[1m1. Create + Attach Writer\x1b[0m\x1b[2m.\x1b[0m");
+    readonlyTerm.writeln("\x1b[2mReadonly mirror will appear after step 3.\x1b[0m");
+    log("ready");
+  })();
+  </script>
+</body>
+</html>

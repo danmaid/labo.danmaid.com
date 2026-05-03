@@ -1,0 +1,10 @@
+# compiled binaries (any OS)
+sshd
+sshd.exe
+
+# go test coverage artifacts
+*.out
+
+# vendor directory (if you ever run `go mod vendor`)
+vendor/
+
