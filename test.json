@@ -156,5 +156,22 @@
         "protocol": "https"
       }
     ]
+  },
+  {
+    "title": "C3750X",
+    "hostname": "C3750X",
+    "addresses": [
+      {
+        "family": "IPv4",
+        "address": "192.168.1.200"
+      }
+    ],
+    "listeners": [
+      {
+        "service": "ssh",
+        "port": 22,
+        "protocol": "ssh"
+      }
+    ]
   }
 ]
