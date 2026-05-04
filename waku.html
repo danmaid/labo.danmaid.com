@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+      height: 100%;
+      --sidebar-width: 48px;
+      --header-height: 32px;
+      --footer-height: 32px;
+    }
+
+    body {
+      height: 100%;
+      margin: 0;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-areas:
+        "header header header header header"
+        "left main main main right"
+        "footer footer footer footer footer";
+      grid-template-columns: var(--sidebar-width) 1fr 1fr 1fr var(--sidebar-width);
+      grid-template-rows: var(--header-height) 1fr var(--footer-height);
+    }
+  </style>
+</head>
+
+<body>
+  <header style="grid-area: header;">top (view control)</header>
+  <aside style="grid-area: left; overflow: hidden;">left (Human to Computer actions)</aside>
+  <main style="grid-area: main; overflow: auto;">
+    <iframe src="http://localhost:8080" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+  </main>
+  <aside style="grid-area: right; overflow: hidden;">right (Computer to Human actions)</aside>
+  <footer style="grid-area: footer;">bottom (items)</footer>
+</body>
+
+</html>

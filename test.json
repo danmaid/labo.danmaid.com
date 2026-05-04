@@ -173,5 +173,18 @@
         "protocol": "ssh"
       }
     ]
+  },
+  {
+    "title": "Nano Pi R1",
+    "hostname": "nanopi-r1.local",
+    "addresses": [
+    ],
+    "listeners": [
+      {
+        "service": "ssh",
+        "port": 22,
+        "protocol": "ssh"
+      }
+    ]
   }
 ]
