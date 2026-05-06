@@ -1,7 +1,7 @@
 .grid {
-  --sidebar-width: 48px;
-  --header-height: 32px;
-  --footer-height: 32px;
+  --sidebar-width: 3em;
+  --header-height: 2em;
+  --footer-height: 2em;
 
   display: grid;
   grid-template-areas:
