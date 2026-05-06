@@ -1,0 +1,41 @@
+.grid {
+  --sidebar-width: 48px;
+  --header-height: 32px;
+  --footer-height: 32px;
+
+  display: grid;
+  grid-template-areas:
+    "header header header"
+    "left    main   right"
+    "footer footer footer";
+  grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
+  grid-template-rows: var(--header-height) 1fr var(--footer-height);
+}
+
+.grid>main,
+.grid>.main {
+  grid-area: main;
+  overflow: auto;
+}
+
+.grid>header,
+.grid>.header {
+  grid-area: header;
+}
+
+.grid>aside:nth-of-type(1),
+.grid>.left {
+  grid-area: left;
+  overflow: hidden;
+}
+
+.grid>aside:nth-of-type(2),
+.grid>.right {
+  grid-area: right;
+  overflow: hidden;
+}
+
+.grid>footer,
+.grid>.footer {
+  grid-area: footer;
+}

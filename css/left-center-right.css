@@ -1,0 +1,13 @@
+.left-center-right {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+}
+
+.left-center-right>:nth-child(2),
+.left-center-right>.center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 100%;
+}
