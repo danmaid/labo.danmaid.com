@@ -18,6 +18,28 @@
       --footer-height: 32px;
     }
   </style>
+  <script>
+    /**
+     * @typedef {Object} Item
+     * @property {string} title
+     * @property {string} url
+     * @property {'action' | 'ref'} role
+     * @property {'tool' | 'page'} [scope]
+     */
+    // 初期値及びテストデータ
+    const data = [
+      { title: 'SSH', url: 'http://localhost:8080', role: 'action', scope: 'tool' },
+      { title: 'アドレス台帳', url: 'index.html', role: 'ref' },
+    ]
+
+    /** @type {(item: Item) => HTMLElement} */
+    function render(item) {
+      const a = document.createElement('a')
+      a.href = item.url
+      a.textContent = item.title
+      return a
+    }
+  </script>
 </head>
 
 <body class="full-screen grid">
@@ -29,8 +51,12 @@
   <aside>
     <span title="Human to Computer actions">left</span>
     <h3>Tools</h3>
-    <nav>
-      <a href="http://localhost:8080">SSH</a>
+    <nav data-render data-role="action" data-scope="tool">
+      <script>
+        for (const tool of data.filter(v => v.role === 'action' && v.scope === 'tool')) {
+          document.currentScript.parentElement.appendChild(render(tool))
+        }
+      </script>
     </nav>
   </aside>
   <main>
@@ -42,11 +68,30 @@
   </aside>
   <footer class="left-center-right">
     <div>left</div>
-    <nav class="center">
-      <a href="index.html">アドレス台帳</a>
+    <nav class="center" data-render data-role="ref">
+      <script>
+        for (const ref of data.filter(item => item.role === 'ref')) {
+          document.currentScript.parentElement.appendChild(render(ref))
+        }
+      </script>
     </nav>
     <div>&copy; 2026 danmaid</div>
   </footer>
+
+  <script>
+    // 本番データを読み込んで上書き
+    fetch('urls.json').then(r => r.json()).then(remote => {
+      data.splice(0, data.length, ...remote)
+      for (const el of document.querySelectorAll('[data-render]')) {
+        el.replaceChildren() // 既存の内容をクリア
+        const role = el.getAttribute('data-role')
+        const scope = el.getAttribute('data-scope')
+        for (const item of data.filter(v => v.role === role && (!scope || v.scope === scope))) {
+          el.appendChild(render(item))
+        }
+      }
+    })
+  </script>
 </body>
 
 </html>

@@ -1,4 +1,4 @@
 {
     "editor.tabSize": 2,
-    "javascript.format.semicolons": "remove"
+    "javascript.format.semicolons": "remove",
 }
