@@ -2,9 +2,11 @@
 <html>
 
 <head>
+  <base target="main">
   <link rel="stylesheet" href="css/full-screen.css">
   <link rel="stylesheet" href="css/grid.css">
   <link rel="stylesheet" href="css/left-center-right.css">
+  <link rel="stylesheet" href="css/auto-title-tooltip.css">
   <style>
     :root {
       color-scheme: dark;
@@ -24,15 +26,26 @@
     <div>center</div>
     <div>right</div>
   </header>
-  <aside>left (Human to Computer actions)</aside>
+  <aside>
+    <span title="Human to Computer actions">left</span>
+    <h3>Tools</h3>
+    <nav>
+      <a href="http://localhost:8080">SSH</a>
+    </nav>
+  </aside>
   <main>
-    <iframe src="http://localhost:8080" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+    <iframe name="main" src="http://localhost:8080"
+      style="width: 100%; height: 100%; border: none; display: block;"></iframe>
   </main>
-  <aside>right (Computer to Human actions)</aside>
+  <aside>
+    <span title="Computer to Human actions">right</span>
+  </aside>
   <footer class="left-center-right">
     <div>left</div>
-    <div>center</div>
-    <div>right</div>
+    <nav class="center">
+      <a href="index.html">アドレス台帳</a>
+    </nav>
+    <div>&copy; 2026 danmaid</div>
   </footer>
 </body>
 

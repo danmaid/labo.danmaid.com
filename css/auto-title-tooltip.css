@@ -1,0 +1,13 @@
+[title] {
+  position: relative;
+}
+
+[title]::after {
+  /* ⓘ = U+24D8 CIRCLED LATIN SMALL LETTER I */
+  content: "\24D8";
+  font-size: 0.75em;
+  cursor: help;
+  position: absolute;
+  top: -0.25em;
+  right: -1em;
+}
