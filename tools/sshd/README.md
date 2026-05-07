@@ -1,69 +1,68 @@
 # Minimal SSH Session Broker (MVP)
 
-This project is a small SSH session broker, not a replacement for ssh(1).
-Its design favors clarity and explicit separation of responsibilities.
+このプロジェクトは小規模な SSH セッションブローカーであり、`ssh(1)` の代替を目指すものではありません。
+設計では、責務を明確に分離し、挙動を追いやすくすることを重視しています。
 
-## Design Intent
+## 設計方針
 
-The server separates responsibilities into two planes:
+サーバは責務を次の 2 つのプレーンに分けています。
 
-- Control plane: REST API only
-- Data plane: WebSocket byte streaming only
+- 制御プレーン: REST API のみ
+- データプレーン: WebSocket によるバイト列ストリームのみ
 
-SSH is managed server-side as a long-lived resource.
+SSH 接続そのものは、サーバ側で長寿命のリソースとして管理します。
 
-## Session Model
+## セッションモデル
 
-- `POST /sessions` creates one SSH TCP connection and one shell channel with PTY.
-- Multiple clients can attach to the same server-side PTY.
-- PTY belongs to the SSH session, not to each client.
-- Clients are only views and optional input devices.
+- `POST /sessions` は 1 本の SSH TCP 接続と、PTY 付きの 1 つのシェルチャネルを作成します。
+- 複数のクライアントが同じサーバ側 PTY にアタッチできます。
+- PTY は各クライアントに属するのではなく、SSH セッションに属します。
+- クライアントは、出力を見るためのビューであり、必要に応じて入力も送れる存在です。
 
-The server allows multiple concurrent writers intentionally.
-Writer arbitration is a UI/human-level concern and is out of scope for MVP.
+サーバは意図的に複数の同時 writer を許可しています。
+writer の調停は UI や運用上の責務とみなし、MVP の対象外としています。
 
-## Authentication and Authorization (MVP)
+## 認証と認可 (MVP)
 
-Two token types are intentionally separate:
+2 種類のトークンを意図的に分離しています。
 
-1. REST auth token (identity)
-- Used only by REST endpoints.
-- Represents who is calling.
-- In-memory lookup in MVP.
+1. REST 認証トークン (identity)
+- REST エンドポイントでのみ使います。
+- 呼び出し元が誰であるかを表します。
+- MVP ではメモリ上で照合します。
 
-2. attach_token (capability)
-- Used only when attaching through WebSocket.
-- Short-lived and one-time use.
-- Grants permission for one session and one mode (writer/readonly).
+2. `attach_token` (capability)
+- WebSocket でアタッチする際にのみ使います。
+- 短寿命かつ使い切りです。
+- 1 つのセッションに対して、1 つのモード (`writer` / `readonly`) の権限を与えます。
 
-These concepts are not interchangeable.
+この 2 つは同じ意味ではなく、相互に置き換えられません。
 
-## HTTP Status Reference
+## HTTP ステータス一覧
 
-The control plane uses a small set of status codes so clients can distinguish
-between auth, permission, and upstream SSH failures.
+制御プレーンでは、認証・権限・上流 SSH 側の失敗をクライアントが判別しやすいように、限定した HTTP ステータスを使っています。
 
 - `400 Bad Request`
-	- Missing or invalid request fields.
-	- Typical examples: `host is required`, `username is required`, `password is required`.
+	- リクエスト項目が不足している、または不正です。
+	- 典型例: `host is required`, `username is required`, `password is required`
 
 - `401 Unauthorized`
-	- REST bearer token is missing or invalid.
-	- Typical example: `invalid auth token`.
+	- REST の Bearer トークンが無い、または不正です。
+	- 典型例: `invalid auth token`
 
 - `403 Forbidden`
-	- REST caller is authenticated but does not own the target session.
-	- Typical example: `not allowed for this session`.
+	- REST 呼び出し元は認証済みですが、対象セッションの所有者ではありません。
+	- 典型例: `not allowed for this session`
 
 - `422 Unprocessable Content`
-	- SSH authentication failed even though the HTTP request itself was valid.
-	- Typical example: `ssh dial failed: ssh: handshake failed: ssh: unable to authenticate, attempted methods [none password], no supported methods remain`.
+	- HTTP リクエスト自体は正しいものの、SSH 認証に失敗しました。
+	- 典型例: `ssh dial failed: ssh: handshake failed: ssh: unable to authenticate, attempted methods [none password], no supported methods remain`
 
 - `502 Bad Gateway`
-	- The broker could not establish or finish the upstream SSH connection/session.
-	- Typical examples include DNS failure, timeout, connection refused, non-SSH response, or PTY/shell setup failure.
+	- ブローカーが上流の SSH 接続または SSH セッション確立を完了できませんでした。
+	- 典型例として、DNS 解決失敗、タイムアウト、接続拒否、SSH ではない応答、PTY / シェル開始失敗などがあります。
 
-Response bodies for these failures are JSON in the form:
+失敗時のレスポンス本文は、次の形式の JSON です。
 
 ```json
 {
@@ -71,99 +70,98 @@ Response bodies for these failures are JSON in the form:
 }
 ```
 
-## WebSocket Attach Flow
+## WebSocket アタッチフロー
 
-Browser WebSocket clients cannot set arbitrary headers reliably.
-For this reason, REST issues an attach_token and returns a fully authorized URL:
+ブラウザの WebSocket クライアントは、任意のヘッダを安定して付けられないことがあります。
+そのため REST 側で `attach_token` を発行し、認可済み URL を返します。
 
 `wss://host/ws/{session_id}?attach_token=XXXX`
 
-WebSocket handler behavior is intentionally narrow:
+WebSocket ハンドラの役割は意図的に限定しています。
 
-- Validate attach_token
-- Resolve session and writable/readonly mode
-- Invalidate token after successful consume
-- Stream raw bytes
+- `attach_token` を検証する
+- セッションとモード (`writer` / `readonly`) を解決する
+- 正常に消費できたトークンを無効化する
+- 生のバイト列をストリームする
 
-It does not perform full REST-style authentication.
+ここでは REST のような完全な認証処理は行いません。
 
-## Writer and Readonly Model
+## Writer / Readonly モデル
 
-- The initial token from session creation is writer.
-- Additional attach tokens default to readonly.
-- Optional writer attaches are allowed through control plane.
-- Multiple writers are allowed by design.
+- セッション作成時に返る最初のトークンは writer です。
+- 追加で発行するアタッチトークンは、デフォルトで readonly です。
+- 制御プレーン経由で追加の writer アタッチも許可できます。
+- 複数 writer は設計上許可されています。
 
-## PTY and Resize
+## PTY とリサイズ
 
-- All attached clients see the same PTY output.
-- Resize is a session action (`session.Resize(cols, rows)`).
-- In this MVP, resize is exposed via REST control plane.
+- アタッチしている全クライアントは同じ PTY 出力を見ます。
+- リサイズはセッション操作 (`session.Resize(cols, rows)`) として扱います。
+- MVP では、リサイズは REST 制御プレーンから実行します。
 
-Resize logic is kept separate from WebSocket framing details.
+このため、リサイズの責務は WebSocket のフレーミング詳細とは切り離されています。
 
-## SSH Authentication Scope (MVP)
+## SSH 認証の対象範囲 (MVP)
 
-Supported now:
+現時点で対応しているもの:
 
-- Username/password
+- ユーザ名 / パスワード
 
-Not supported now:
+現時点で対応していないもの:
 
-- SSH keys
+- SSH 鍵
 - Agent forwarding
-- known_hosts verification
+- `known_hosts` 検証
 
-Authentication is abstracted behind an interface so future methods can be added
-without changing calling code.
+認証処理はインターフェースの背後に抽象化されているため、今後方式を増やしても呼び出し側を大きく変えずに拡張できます。
 
-## Non-goals
+## 非目標
 
-Initial version intentionally does not implement:
+初期版では、次の機能は意図的に実装していません。
 
-- OAuth or JWT validation
-- SSH key management
-- Writer locking/arbitration
-- SCP or SFTP
-- tmux-like multiplexing
+- OAuth / JWT の検証
+- SSH 鍵管理
+- writer のロック / 調停
+- SCP / SFTP
+- tmux のような多重化
 
-## Future Extensions
+## 今後の拡張候補
 
-Natural extension points include:
+自然な拡張ポイントとして、次のようなものがあります。
 
-- Additional SSH auth strategies
-- Persistent session metadata storage
-- Fine-grained policy for attach token issuance
-- Optional origin checks and stricter network hardening
+- SSH 認証方式の追加
+- セッションメタデータの永続化
+- attach_token 発行ポリシーの詳細化
+- オリジンチェックの追加や、より厳密なネットワークハードニング
 
-## Minimal Manual Verification
+## 最小手動検証
 
-This is a small end-to-end check for the MVP flow:
+以下は MVP フローの最小限のエンドツーエンド確認手順です。
 
-1. Start the server.
-2. Create one SSH session through REST.
-3. Attach one writer client through WebSocket.
-4. Resize the shared PTY through REST.
-5. Optionally attach a readonly client.
+1. サーバを起動する
+2. REST 経由で SSH セッションを 1 つ作成する
+3. WebSocket で writer クライアントを 1 つアタッチする
+4. REST 経由で共有 PTY をリサイズする
+5. 必要に応じて readonly クライアントをアタッチする
 
-The examples below assume:
+以下の例では、次を前提にしています。
 
-- The broker is running on `http://localhost:8080`
-- The bootstrap REST token is `dev-token`
-- A reachable SSH server exists at `127.0.0.1:22`
-- The SSH account is `demo` / `demo-password`
+- ブローカーは `http://localhost:8080` で動作している
+- 初期 REST トークンは `dev-token`
+- 到達可能な SSH サーバが `127.0.0.1:22` に存在する
+- SSH アカウントは `demo` / `demo-password`
 
-### 1. Start the broker
+### 1. ブローカーを起動する
 
-From `tools/sshd`:
+`tools/sshd` で次を実行します。
 
 ```powershell
 go run .
 ```
 
-You should see a log line showing the listen address and the bootstrap REST auth token.
+listen address と bootstrap REST auth token を示すログが出力されれば起動成功です。
 
-### 2. Create a session with curl
+### 2. curl でセッションを作成する
 
 ```powershell
 curl.exe -s -X POST "http://localhost:8080/sessions" ^
@@ -172,7 +170,7 @@ curl.exe -s -X POST "http://localhost:8080/sessions" ^
 	--data-raw "{\"host\":\"127.0.0.1\",\"port\":22,\"username\":\"demo\",\"password\":\"demo-password\",\"pty_cols\":80,\"pty_rows\":24}"
 ```
 
-Expected response shape:
+期待されるレスポンスの形:
 
 ```json
 {
@@ -181,11 +179,11 @@ Expected response shape:
 }
 ```
 
-Save both `session_id` and `writer_ws_url`.
+`session_id` と `writer_ws_url` を控えておきます。
 
-Representative failure responses:
+代表的な失敗レスポンス:
 
-- Invalid REST token (`401 Unauthorized`)
+- REST トークン不正 (`401 Unauthorized`)
 
 ```json
 {
@@ -193,7 +191,7 @@ Representative failure responses:
 }
 ```
 
-- SSH authentication failure (`422 Unprocessable Content`)
+- SSH 認証失敗 (`422 Unprocessable Content`)
 
 ```json
 {
@@ -201,7 +199,7 @@ Representative failure responses:
 }
 ```
 
-- Upstream SSH connection failure (`502 Bad Gateway`)
+- 上流 SSH 接続失敗 (`502 Bad Gateway`)
 
 ```json
 {
@@ -209,20 +207,20 @@ Representative failure responses:
 }
 ```
 
-### 3. Attach the writer client through WebSocket
+### 3. WebSocket で writer クライアントをアタッチする
 
-If you have `wscat`:
+`wscat` がある場合は次を実行できます。
 
 ```powershell
 npx wscat -c "<writer_ws_url>"
 ```
 
-Anything you type is forwarded to the remote SSH PTY because this first attach URL is writable.
+この最初のアタッチ URL は writable なので、入力した内容はそのままリモートの SSH PTY に転送されます。
 
-If you do not have `wscat`, a browser-side WebSocket tester or a short Node script can be used instead.
-The important part is that the URL already contains the authorized `attach_token`.
+`wscat` が無い場合は、ブラウザ側の WebSocket テスターや短い Node スクリプトでも構いません。
+重要なのは、URL に認可済みの `attach_token` が含まれていることです。
 
-### 4. Resize the PTY through REST
+### 4. REST で PTY をリサイズする
 
 ```powershell
 curl.exe -s -X POST "http://localhost:8080/sessions/<session_id>/resize" ^
@@ -231,7 +229,7 @@ curl.exe -s -X POST "http://localhost:8080/sessions/<session_id>/resize" ^
 	--data-raw "{\"cols\":120,\"rows\":40}"
 ```
 
-Expected response:
+期待されるレスポンス:
 
 ```json
 {
@@ -239,9 +237,9 @@ Expected response:
 }
 ```
 
-This demonstrates that resize is handled on the control plane rather than as a WebSocket framing concern.
+これは、リサイズが WebSocket のフレーム仕様ではなく、制御プレーンの責務として扱われていることを示します。
 
-### 5. Issue a readonly attach token
+### 5. readonly のアタッチトークンを発行する
 
 ```powershell
 curl.exe -s -X POST "http://localhost:8080/sessions/<session_id>/attach-tokens" ^
@@ -250,7 +248,7 @@ curl.exe -s -X POST "http://localhost:8080/sessions/<session_id>/attach-tokens" 
 	--data-raw "{\"mode\":\"readonly\"}"
 ```
 
-Expected response shape:
+期待されるレスポンスの形:
 
 ```json
 {
@@ -260,17 +258,17 @@ Expected response shape:
 }
 ```
 
-Connect to `ws_url` with the same WebSocket client.
-You should receive the same PTY output as the writer client, but any input from this readonly client is ignored by the server.
+同じ WebSocket クライアントで `ws_url` に接続すると、writer クライアントと同じ PTY 出力を受け取れます。
+一方で、この readonly クライアントから送った入力はサーバ側で無視されます。
 
-### 6. Delete the session
+### 6. セッションを削除する
 
 ```powershell
 curl.exe -s -X DELETE "http://localhost:8080/sessions/<session_id>" ^
 	-H "Authorization: Bearer dev-token"
 ```
 
-Expected response:
+期待されるレスポンス:
 
 ```json
 {
@@ -278,10 +276,10 @@ Expected response:
 }
 ```
 
-## What This Confirms
+## この README で確認できること
 
-- REST creates and manages the server-side SSH resource.
-- WebSocket attaches only to an existing session.
-- `attach_token` acts as a capability, not as caller identity.
-- Writer and readonly behavior are tracked per attached client.
-- PTY resize remains a control-plane action.
+- REST がサーバ側 SSH リソースの作成と管理を担当していること
+- WebSocket は既存セッションに対するアタッチ専用であること
+- `attach_token` は呼び出し元の identity ではなく capability として機能すること
+- writer / readonly の振る舞いがアタッチ済みクライアントごとに管理されること
+- PTY リサイズが制御プレーン操作として扱われていること
