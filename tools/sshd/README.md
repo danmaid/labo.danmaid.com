@@ -72,6 +72,24 @@ writer の調停は UI や運用上の責務とみなし、MVP の対象外と�
 
 ## API リファレンス
 
+### 権限モデル
+
+すべての REST エンドポイントは `Authorization: Bearer <token>` による認証が必要です。
+その上で、操作によって必要な権限が異なります。
+
+| 操作 | 必要な権限 |
+|---|---|
+| `GET /sessions` | REST トークンのみ |
+| `GET /sessions/{id}` | REST トークンのみ |
+| `POST /sessions/{id}/attach-tokens` | REST トークンのみ (writer トークンの発行も可) |
+| `DELETE /sessions/{id}` | セッション作成者 (write 権限) |
+| `POST /sessions/{id}/resize` | セッション作成者 (write 権限) |
+
+WebSocket アタッチ後の書き込み可否は、`attach_token` に付与された `writer` / `readonly` モードで決まります。
+REST トークンの種類とは独立しています。
+
+---
+
 ### GET /healthz
 
 ヘルスチェック。認証不要。
@@ -83,11 +101,34 @@ writer の調停は UI や運用上の責務とみなし、MVP の対象外と�
 
 ---
 
-### POST /sessions
+### GET /sessions
 
-SSH セッションを作成します。接続と PTY の確立まで同期的に行います。
+管理中のセッション全件を返します。各エントリに `owner` が含まれます。
 
 **認証**: `Authorization: Bearer <token>` (REST トークン)
+
+**レスポンス** `200 OK`
+```json
+[
+  {
+    "session_id": "<uuid>",
+    "owner": "<owner>",
+    "host": "127.0.0.1",
+    "port": 22,
+    "username": "demo",
+    "created_at": "2026-05-07T12:00:00Z",
+    "client_count": 1
+  }
+]
+```
+
+セッションが存在しない場合は空配列 `[]` を返します。
+
+**エラー**: `401`
+
+---
+
+### POST /sessions
 
 **リクエストボディ**
 
@@ -111,6 +152,31 @@ SSH セッションを作成します。接続と PTY の確立まで同期的�
 返却される `writer_ws_url` の `attach_token` は一度限り有効な writer トークンです。
 
 **エラー**: `400` (入力不足) / `401` (REST トークン不正) / `422` (SSH 認証失敗) / `502` (接続失敗)
+
+---
+
+### GET /sessions/{session_id}
+
+特定セッションの詳細を返します。
+
+**認証**: `Authorization: Bearer <token>` (REST トークン、セッション所有者のみ)
+
+**レスポンス** `200 OK`
+```json
+{
+  "session_id": "<uuid>",
+  "owner": "<owner>",
+  "host": "127.0.0.1",
+  "port": 22,
+  "username": "demo",
+  "created_at": "2026-05-07T12:00:00Z",
+  "client_count": 1
+}
+```
+
+`client_count` は現在アタッチ中の WebSocket クライアント数です。
+
+**エラー**: `401` / `403` (非所有者) / `404` (セッション不存在)
 
 ---
 

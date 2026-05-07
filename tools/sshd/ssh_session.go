@@ -38,9 +38,23 @@ type AttachClient struct {
 	Outbound chan []byte
 }
 
+type SessionInfo struct {
+	SessionID   string    `json:"session_id"`
+	Owner       string    `json:"owner"`
+	Host        string    `json:"host"`
+	Port        int       `json:"port"`
+	Username    string    `json:"username"`
+	CreatedAt   time.Time `json:"created_at"`
+	ClientCount int       `json:"client_count"`
+}
+
 type SSHSession struct {
-	id    string
-	owner string
+	id        string
+	owner     string
+	host      string
+	port      int
+	username  string
+	createdAt time.Time
 
 	client *ssh.Client
 	shell  *ssh.Session
@@ -130,13 +144,17 @@ func NewSSHSession(id string, owner string, params SSHCreateParams, auth SSHAuth
 	}
 
 	s := &SSHSession{
-		id:      id,
-		owner:   owner,
-		client:  client,
-		shell:   shell,
-		stdin:   stdin,
-		done:    make(chan struct{}),
-		clients: make(map[string]*AttachClient),
+		id:        id,
+		owner:     owner,
+		host:      params.Host,
+		port:      params.Port,
+		username:  params.Username,
+		createdAt: time.Now().UTC(),
+		client:    client,
+		shell:     shell,
+		stdin:     stdin,
+		done:      make(chan struct{}),
+		clients:   make(map[string]*AttachClient),
 	}
 
 	go s.pumpOutput(stdout)
@@ -148,6 +166,20 @@ func NewSSHSession(id string, owner string, params SSHCreateParams, auth SSHAuth
 
 func (s *SSHSession) ID() string {
 	return s.id
+}
+
+func (s *SSHSession) Info() SessionInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return SessionInfo{
+		SessionID:   s.id,
+		Owner:       s.owner,
+		Host:        s.host,
+		Port:        s.port,
+		Username:    s.username,
+		CreatedAt:   s.createdAt,
+		ClientCount: len(s.clients),
+	}
 }
 
 func (s *SSHSession) Owner() string {

@@ -59,14 +59,20 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSessionsRoot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	identity, ok := requireRESTIdentity(s.authStore, r)
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "invalid auth token")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.handleListSessions(w)
+		return
+	case http.MethodPost:
+		// handled below
+	default:
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -114,21 +120,31 @@ func (s *Server) handleSessionActions(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusNotFound, "session not found")
 		return
 	}
-	if session.Owner() != identity.Name {
-		writeJSONError(w, http.StatusForbidden, "not allowed for this session")
-		return
-	}
-
 	switch {
-	case action == "" && r.Method == http.MethodDelete:
-		s.handleDeleteSession(w, sessionID)
+	case action == "" && r.Method == http.MethodGet:
+		writeJSON(w, http.StatusOK, session.Info())
 	case action == "attach-tokens" && r.Method == http.MethodPost:
 		s.handleCreateAttachToken(w, r, sessionID)
+	case action == "" && r.Method == http.MethodDelete:
+		if session.Owner() != identity.Name {
+			writeJSONError(w, http.StatusForbidden, "not allowed for this session")
+			return
+		}
+		s.handleDeleteSession(w, sessionID)
 	case action == "resize" && r.Method == http.MethodPost:
+		if session.Owner() != identity.Name {
+			writeJSONError(w, http.StatusForbidden, "not allowed for this session")
+			return
+		}
 		s.handleResizeSession(w, r, session)
 	default:
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (s *Server) handleListSessions(w http.ResponseWriter) {
+	sessions := s.sessions.List()
+	writeJSON(w, http.StatusOK, sessions)
 }
 
 func (s *Server) handleDeleteSession(w http.ResponseWriter, sessionID string) {

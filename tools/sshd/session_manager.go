@@ -40,6 +40,16 @@ func (m *SessionManager) Get(sessionID string) (*SSHSession, bool) {
 	return session, ok
 }
 
+func (m *SessionManager) List() []SessionInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	result := make([]SessionInfo, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		result = append(result, s.Info())
+	}
+	return result
+}
+
 func (m *SessionManager) Delete(sessionID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
