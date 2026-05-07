@@ -186,5 +186,16 @@
         "protocol": "ssh"
       }
     ]
+  },
+  {
+    "title": "SSH Broker",
+    "url": "http://localhost:8080",
+    "role": "action",
+    "scope": "tool"
+  },
+  {
+    "title": "アドレス台帳",
+    "url": "index.html",
+    "role": "ref"
   }
 ]

@@ -80,7 +80,7 @@
 
   <script>
     // 本番データを読み込んで上書き
-    fetch('urls.json').then(r => r.json()).then(remote => {
+    fetch('test.json').then(r => r.json()).then(remote => {
       data.splice(0, data.length, ...remote)
       for (const el of document.querySelectorAll('[data-render]')) {
         el.replaceChildren() // 既存の内容をクリア
