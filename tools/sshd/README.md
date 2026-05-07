@@ -70,6 +70,124 @@ writer の調停は UI や運用上の責務とみなし、MVP の対象外と�
 }
 ```
 
+## API リファレンス
+
+### GET /healthz
+
+ヘルスチェック。認証不要。
+
+**レスポンス** `200 OK`
+```json
+{ "status": "ok" }
+```
+
+---
+
+### POST /sessions
+
+SSH セッションを作成します。接続と PTY の確立まで同期的に行います。
+
+**認証**: `Authorization: Bearer <token>` (REST トークン)
+
+**リクエストボディ**
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `host` | string | ✓ | SSH サーバのホスト名または IP |
+| `port` | number | ✓ | SSH ポート番号 |
+| `username` | string | ✓ | SSH ユーザ名 |
+| `password` | string | ✓ | SSH パスワード |
+| `pty_cols` | number | | PTY の列数 (省略時 80) |
+| `pty_rows` | number | | PTY の行数 (省略時 24) |
+
+**レスポンス** `201 Created`
+```json
+{
+  "session_id": "<uuid>",
+  "writer_ws_url": "ws://host/ws/<session_id>?attach_token=<token>"
+}
+```
+
+返却される `writer_ws_url` の `attach_token` は一度限り有効な writer トークンです。
+
+**エラー**: `400` (入力不足) / `401` (REST トークン不正) / `422` (SSH 認証失敗) / `502` (接続失敗)
+
+---
+
+### DELETE /sessions/{session_id}
+
+セッションを終了して削除します。
+
+**認証**: `Authorization: Bearer <token>` (REST トークン、セッション所有者のみ)
+
+**レスポンス** `200 OK`
+```json
+{ "status": "deleted" }
+```
+
+**エラー**: `401` / `403` (非所有者) / `404` (セッション不存在)
+
+---
+
+### POST /sessions/{session_id}/attach-tokens
+
+追加の `attach_token` を発行します。デフォルトは readonly です。
+
+**認証**: `Authorization: Bearer <token>` (REST トークン、セッション所有者のみ)
+
+**リクエストボディ**
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `mode` | string | | `"readonly"` (省略時) または `"writer"` |
+| `ttl_seconds` | number | | トークン有効期間 (秒、最大 300) |
+
+**レスポンス** `201 Created`
+```json
+{
+  "session_id": "<session_id>",
+  "mode": "readonly",
+  "ws_url": "ws://host/ws/<session_id>?attach_token=<token>"
+}
+```
+
+**エラー**: `400` / `401` / `403`
+
+---
+
+### POST /sessions/{session_id}/resize
+
+セッションの PTY サイズを変更します。
+
+**認証**: `Authorization: Bearer <token>` (REST トークン、セッション所有者のみ)
+
+**リクエストボディ**
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `cols` | number | ✓ | 列数 |
+| `rows` | number | ✓ | 行数 |
+
+**レスポンス** `200 OK`
+```json
+{ "status": "resized" }
+```
+
+**エラー**: `400` / `401` / `403`
+
+---
+
+### GET /ws/{session_id}?attach_token={token}
+
+WebSocket アタッチ。`attach_token` は `attach-tokens` エンドポイントで発行した使い切りトークンです。
+
+トークンが writer 権限を持つ場合、送信バイト列はそのままリモート PTY への入力となります。
+readonly の場合、送信バイト列はサーバ側で無視されます。
+
+**エラー**: `401` (トークン不正・使用済み) / `404` (セッション不存在)
+
+---
+
 ## WebSocket アタッチフロー
 
 ブラウザの WebSocket クライアントは、任意のヘッダを安定して付けられないことがあります。
