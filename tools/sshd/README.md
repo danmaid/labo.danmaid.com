@@ -38,6 +38,39 @@ Two token types are intentionally separate:
 
 These concepts are not interchangeable.
 
+## HTTP Status Reference
+
+The control plane uses a small set of status codes so clients can distinguish
+between auth, permission, and upstream SSH failures.
+
+- `400 Bad Request`
+	- Missing or invalid request fields.
+	- Typical examples: `host is required`, `username is required`, `password is required`.
+
+- `401 Unauthorized`
+	- REST bearer token is missing or invalid.
+	- Typical example: `invalid auth token`.
+
+- `403 Forbidden`
+	- REST caller is authenticated but does not own the target session.
+	- Typical example: `not allowed for this session`.
+
+- `422 Unprocessable Content`
+	- SSH authentication failed even though the HTTP request itself was valid.
+	- Typical example: `ssh dial failed: ssh: handshake failed: ssh: unable to authenticate, attempted methods [none password], no supported methods remain`.
+
+- `502 Bad Gateway`
+	- The broker could not establish or finish the upstream SSH connection/session.
+	- Typical examples include DNS failure, timeout, connection refused, non-SSH response, or PTY/shell setup failure.
+
+Response bodies for these failures are JSON in the form:
+
+```json
+{
+	"error": "..."
+}
+```
+
 ## WebSocket Attach Flow
 
 Browser WebSocket clients cannot set arbitrary headers reliably.
@@ -149,6 +182,32 @@ Expected response shape:
 ```
 
 Save both `session_id` and `writer_ws_url`.
+
+Representative failure responses:
+
+- Invalid REST token (`401 Unauthorized`)
+
+```json
+{
+	"error": "invalid auth token"
+}
+```
+
+- SSH authentication failure (`422 Unprocessable Content`)
+
+```json
+{
+	"error": "ssh dial failed: ssh: handshake failed: ssh: unable to authenticate, attempted methods [none password], no supported methods remain"
+}
+```
+
+- Upstream SSH connection failure (`502 Bad Gateway`)
+
+```json
+{
+	"error": "ssh dial failed: dial tcp 127.0.0.1:22: connect: connection refused"
+}
+```
 
 ### 3. Attach the writer client through WebSocket
 

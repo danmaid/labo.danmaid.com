@@ -78,7 +78,7 @@ func (s *Server) handleSessionsRoot(w http.ResponseWriter, r *http.Request) {
 
 	session, err := s.sessions.CreateSession(req, identity, s.sshAuth)
 	if err != nil {
-		writeJSONError(w, http.StatusBadGateway, err.Error())
+		writeJSONError(w, classifyCreateSessionStatus(err), err.Error())
 		return
 	}
 
@@ -328,4 +328,16 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 
 func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
 	writeJSON(w, statusCode, map[string]string{"error": message})
+}
+
+func classifyCreateSessionStatus(err error) int {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "required"):
+		return http.StatusBadRequest
+	case strings.Contains(msg, "unable to authenticate"):
+		return http.StatusUnprocessableEntity
+	default:
+		return http.StatusBadGateway
+	}
 }
