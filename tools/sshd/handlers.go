@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -253,6 +254,14 @@ func (s *Server) handleWebSocketAttach(w http.ResponseWriter, r *http.Request) {
 	}
 	defer session.UnregisterClient(client.ID)
 
+	var closeOnce sync.Once
+	closeConn := func(code int, reason string) {
+		closeOnce.Do(func() {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, reason), time.Now().Add(time.Second))
+			_ = conn.Close()
+		})
+	}
+
 	if len(replay) > 0 {
 		if err := conn.WriteMessage(websocket.BinaryMessage, replay); err != nil {
 			return
@@ -260,6 +269,7 @@ func (s *Server) handleWebSocketAttach(w http.ResponseWriter, r *http.Request) {
 	}
 
 	done := make(chan struct{})
+	stopWrite := make(chan struct{})
 	go func() {
 		defer close(done)
 		for {
@@ -269,6 +279,9 @@ func (s *Server) handleWebSocketAttach(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			case <-session.Done():
+				closeConn(websocket.CloseNormalClosure, "session ended")
+				return
+			case <-stopWrite:
 				return
 			}
 		}
@@ -290,6 +303,8 @@ func (s *Server) handleWebSocketAttach(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	close(stopWrite)
+	closeConn(websocket.CloseNormalClosure, "detached")
 	<-done
 }
 

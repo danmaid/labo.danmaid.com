@@ -28,9 +28,24 @@ func (m *SessionManager) CreateSession(params SSHCreateParams, owner Identity, a
 	}
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.sessions[sessionID] = session
+	m.mu.Unlock()
+
+	go m.removeWhenDone(session)
 	return session, nil
+}
+
+func (m *SessionManager) removeWhenDone(session *SSHSession) {
+	<-session.Done()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	current, ok := m.sessions[session.ID()]
+	if !ok || current != session {
+		return
+	}
+	delete(m.sessions, session.ID())
 }
 
 func (m *SessionManager) Get(sessionID string) (*SSHSession, bool) {
@@ -52,11 +67,13 @@ func (m *SessionManager) List() []SessionInfo {
 
 func (m *SessionManager) Delete(sessionID string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	session, ok := m.sessions[sessionID]
 	if !ok {
+		m.mu.Unlock()
 		return errors.New("session not found")
 	}
 	delete(m.sessions, sessionID)
+	m.mu.Unlock()
+
 	return session.Close()
 }
