@@ -79,7 +79,8 @@
       color: var(--muted);
       margin-bottom: 8px;
     }
-    input {
+    input,
+    select {
       display: block;
       width: 100%;
       margin-top: 4px;
@@ -115,6 +116,12 @@
       word-break: break-all;
       max-height: 160px;
       overflow-y: auto;
+    }
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-top: 6px;
     }
 
     /* ── workspace ───────────────────────────────────────────── */
@@ -204,10 +211,24 @@
     </div>
 
     <div class="section buttons">
-      <button id="createBtn">1. Create + Attach Writer</button>
-      <button id="resizeBtn" class="secondary" disabled>2. Sync Resize to PTY</button>
-      <button id="readonlyBtn" class="secondary" disabled>3. Attach Readonly Mirror</button>
-      <button id="deleteBtn" class="ghost" disabled>4. Delete Session</button>
+      <button id="healthBtn" class="ghost">1. Health Check</button>
+      <button id="refreshBtn" class="ghost">2. Refresh Session List</button>
+      <button id="createBtn">3. Create + Attach Writer</button>
+      <button id="attachWriterBtn" class="secondary" disabled>4. Attach Writer to Selected</button>
+      <button id="readonlyBtn" class="secondary" disabled>5. Attach Readonly Mirror</button>
+      <button id="resizeBtn" class="secondary" disabled>6. Sync Resize to PTY</button>
+      <button id="deleteBtn" class="ghost" disabled>7. Delete Selected Session</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Sessions</div>
+      <label>Selected Session
+        <select id="sessionSelect">
+          <option value="">(none)</option>
+        </select>
+      </label>
+      <button id="detailBtn" class="ghost" disabled>Show Selected Detail</button>
+      <div class="hint">一覧取得後、ここからセッションを選んで attach/resize/delete を試せます。</div>
     </div>
 
     <div class="section">
@@ -244,7 +265,7 @@
     "use strict";
 
     // ── state ────────────────────────────────────────────────────
-    const state = { sessionId: "", writerWs: null, readonlyWs: null };
+    const state = { sessionId: "", writerWs: null, readonlyWs: null, sessions: [] };
 
     // ── element refs ─────────────────────────────────────────────
     const $ = id => document.getElementById(id);
@@ -256,8 +277,13 @@
       ttl:            $("ttl"),
       username:       $("username"),
       password:       $("password"),
+      sessionSelect:  $("sessionSelect"),
       metaLog:        $("metaLog"),
+      healthBtn:      $("healthBtn"),
+      refreshBtn:     $("refreshBtn"),
       createBtn:      $("createBtn"),
+      attachWriterBtn:$("attachWriterBtn"),
+      detailBtn:      $("detailBtn"),
       resizeBtn:      $("resizeBtn"),
       readonlyBtn:    $("readonlyBtn"),
       deleteBtn:      $("deleteBtn"),
@@ -326,9 +352,11 @@
 
     function syncButtons() {
       const has = Boolean(state.sessionId);
-      el.resizeBtn.disabled   = !has;
+      el.attachWriterBtn.disabled = !has;
+      el.detailBtn.disabled = !has;
+      el.resizeBtn.disabled = !has;
       el.readonlyBtn.disabled = !has;
-      el.deleteBtn.disabled   = !has;
+      el.deleteBtn.disabled = !has;
     }
 
     function authHeaders() {
@@ -338,12 +366,42 @@
       };
     }
 
+    function authOnlyHeaders() {
+      return {
+        "Authorization": `Bearer ${el.authToken.value.trim()}`,
+      };
+    }
+
     async function api(path, init) {
       const base = el.baseUrl.value.replace(/\/$/, "");
-      const res  = await fetch(base + path, init);
+      const url = base + path;
+      const method = (init?.method || "GET").toUpperCase();
+      const startedAt = performance.now();
+      log(`HTTP ${method} ${url}`);
+
+      const res = await fetch(url, init);
+      const elapsedMs = Math.round(performance.now() - startedAt);
       const text = await res.text();
-      const json = text ? JSON.parse(text) : null;
-      if (!res.ok) throw new Error(json?.error ?? res.statusText);
+
+      let json = null;
+      if (text) {
+        try {
+          json = JSON.parse(text);
+        } catch {
+          json = null;
+        }
+      }
+
+      if (json !== null) {
+        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`, json);
+      } else {
+        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`);
+      }
+
+      if (!res.ok) {
+        const message = json?.error ?? text ?? res.statusText;
+        throw new Error(`[${res.status}] ${message}`);
+      }
       return json;
     }
 
@@ -351,12 +409,57 @@
       if (ws && ws.readyState === WebSocket.OPEN) ws.close();
     }
 
+    function selectedSessionId() {
+      return el.sessionSelect.value || "";
+    }
+
+    function setSelectedSession(sessionId) {
+      state.sessionId = sessionId || "";
+      el.sessionSelect.value = state.sessionId;
+      syncButtons();
+    }
+
+    function sessionOptionLabel(s) {
+      return `${s.session_id} | ${s.username}@${s.host}:${s.port} | owner=${s.owner} | clients=${s.client_count}`;
+    }
+
+    function renderSessionOptions() {
+      const keep = state.sessionId;
+      el.sessionSelect.innerHTML = "";
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = state.sessions.length ? "(select a session)" : "(no sessions)";
+      el.sessionSelect.appendChild(empty);
+
+      for (const s of state.sessions) {
+        const opt = document.createElement("option");
+        opt.value = s.session_id;
+        opt.textContent = sessionOptionLabel(s);
+        el.sessionSelect.appendChild(opt);
+      }
+
+      if (keep && state.sessions.some(s => s.session_id === keep)) {
+        setSelectedSession(keep);
+      } else {
+        setSelectedSession("");
+      }
+    }
+
+    function requireSelectedSession() {
+      const id = selectedSessionId();
+      if (!id) throw new Error("session is not selected");
+      state.sessionId = id;
+      return id;
+    }
+
     function openWs(url, term, statusEl, label) {
       return new Promise((resolve, reject) => {
+        log(`WS CONNECT ${label} ${url}`);
         const ws = new WebSocket(url);
         ws.binaryType = "arraybuffer";
 
         ws.addEventListener("open", () => {
+          log(`WS OPEN ${label}`);
           setStatus(statusEl, "attached", "ok");
           term.writeln(`\r\n\x1b[32m[${label} attached]\x1b[0m`);
           resolve(ws);
@@ -370,11 +473,13 @@
         });
 
         ws.addEventListener("close", () => {
+          log(`WS CLOSE ${label}`);
           setStatus(statusEl, "closed", "bad");
           term.writeln(`\r\n\x1b[31m[${label} disconnected]\x1b[0m`);
         });
 
         ws.addEventListener("error", () => {
+          log(`WS ERROR ${label}`);
           setStatus(statusEl, "error", "bad");
           if (ws.readyState !== WebSocket.OPEN) reject(new Error(`${label}: connect failed`));
         }, { once: true });
@@ -408,14 +513,57 @@
       state.sessionId = result.session_id;
       log("session created", result);
       state.writerWs = await openWs(result.writer_ws_url, writerTerm, el.writerStatus, "writer");
+      await refreshSessions();
+      setSelectedSession(result.session_id);
       syncButtons();
     }
 
+    async function healthCheck() {
+      const result = await api("/healthz", { method: "GET" });
+      log("health", result);
+    }
+
+    async function refreshSessions() {
+      const result = await api("/sessions", {
+        method: "GET",
+        headers: authOnlyHeaders(),
+      });
+      state.sessions = Array.isArray(result) ? result : [];
+      renderSessionOptions();
+      log("sessions refreshed", { count: state.sessions.length });
+    }
+
+    async function showSelectedDetail() {
+      const sessionId = requireSelectedSession();
+      const result = await api(`/sessions/${sessionId}`, {
+        method: "GET",
+        headers: authOnlyHeaders(),
+      });
+      log("session detail", result);
+    }
+
+    async function attachWriter() {
+      const sessionId = requireSelectedSession();
+      writerTerm.reset();
+      writerTerm.writeln("\x1b[33mrequesting writer token…\x1b[0m");
+      const result = await api(`/sessions/${sessionId}/attach-tokens`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ mode: "writer", ttl_seconds: Number(el.ttl.value) }),
+      });
+      log("writer token issued", result);
+      closeWs(state.writerWs);
+      state.writerWs = await openWs(result.ws_url, writerTerm, el.writerStatus, "writer");
+      await refreshSessions();
+      setSelectedSession(sessionId);
+    }
+
     async function resizeSession() {
+      const sessionId = requireSelectedSession();
       // FitAddon has already updated writerTerm.cols / rows from the DOM.
       const cols = writerTerm.cols;
       const rows = writerTerm.rows;
-      const result = await api(`/sessions/${state.sessionId}/resize`, {
+      const result = await api(`/sessions/${sessionId}/resize`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ cols, rows }),
@@ -424,9 +572,10 @@
     }
 
     async function attachReadonly() {
+      const sessionId = requireSelectedSession();
       readonlyTerm.reset();
       readonlyTerm.writeln("\x1b[33mrequesting readonly token…\x1b[0m");
-      const result = await api(`/sessions/${state.sessionId}/attach-tokens`, {
+      const result = await api(`/sessions/${sessionId}/attach-tokens`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ mode: "readonly", ttl_seconds: Number(el.ttl.value) }),
@@ -434,17 +583,24 @@
       log("readonly token issued", result);
       closeWs(state.readonlyWs);
       state.readonlyWs = await openWs(result.ws_url, readonlyTerm, el.readonlyStatus, "readonly");
+      await refreshSessions();
+      setSelectedSession(sessionId);
     }
 
     async function deleteSession() {
-      const result = await api(`/sessions/${state.sessionId}`, {
+      const sessionId = requireSelectedSession();
+      const result = await api(`/sessions/${sessionId}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${el.authToken.value.trim()}` },
+        headers: authOnlyHeaders(),
       });
       log("session deleted", result);
       closeWs(state.writerWs);
       closeWs(state.readonlyWs);
       state.sessionId = "";
+      state.sessions = [];
+      setStatus(el.writerStatus, "idle", "");
+      setStatus(el.readonlyStatus, "idle", "");
+      await refreshSessions();
       syncButtons();
     }
 
@@ -458,16 +614,22 @@
       }
     }
 
-    el.createBtn.addEventListener("click",   () => wrap(createSession,  el.writerStatus));
-    el.resizeBtn.addEventListener("click",   () => wrap(resizeSession));
-    el.readonlyBtn.addEventListener("click", () => wrap(attachReadonly, el.readonlyStatus));
-    el.deleteBtn.addEventListener("click",   () => wrap(deleteSession));
+    el.healthBtn.addEventListener("click",    () => wrap(healthCheck));
+    el.refreshBtn.addEventListener("click",   () => wrap(refreshSessions));
+    el.createBtn.addEventListener("click",    () => wrap(createSession,  el.writerStatus));
+    el.attachWriterBtn.addEventListener("click", () => wrap(attachWriter, el.writerStatus));
+    el.detailBtn.addEventListener("click",    () => wrap(showSelectedDetail));
+    el.resizeBtn.addEventListener("click",    () => wrap(resizeSession));
+    el.readonlyBtn.addEventListener("click",  () => wrap(attachReadonly, el.readonlyStatus));
+    el.deleteBtn.addEventListener("click",    () => wrap(deleteSession));
+    el.sessionSelect.addEventListener("change", () => setSelectedSession(selectedSessionId()));
 
     // ── boot ─────────────────────────────────────────────────────
     syncButtons();
-    writerTerm.writeln("\x1b[2mFill in SSH Target on the left, then press\x1b[0m \x1b[1m1. Create + Attach Writer\x1b[0m\x1b[2m.\x1b[0m");
-    readonlyTerm.writeln("\x1b[2mReadonly mirror will appear after step 3.\x1b[0m");
+    writerTerm.writeln("\x1b[2mCreate a new session or select one after Refresh Session List, then attach writer.\x1b[0m");
+    readonlyTerm.writeln("\x1b[2mUse Attach Readonly Mirror for the selected session.\x1b[0m");
     log("ready");
+    wrap(refreshSessions);
   })();
   </script>
 </body>
