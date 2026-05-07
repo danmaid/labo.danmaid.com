@@ -48,6 +48,8 @@ type SessionInfo struct {
 	ClientCount int       `json:"client_count"`
 }
 
+const defaultScrollbackLimitBytes = 128 * 1024
+
 type SSHSession struct {
 	id        string
 	owner     string
@@ -67,6 +69,9 @@ type SSHSession struct {
 	writeMu sync.Mutex
 	closed  bool
 	clients map[string]*AttachClient
+
+	scrollback      []byte
+	scrollbackLimit int
 }
 
 func NewSSHSession(id string, owner string, params SSHCreateParams, auth SSHAuthenticator) (*SSHSession, error) {
@@ -144,17 +149,18 @@ func NewSSHSession(id string, owner string, params SSHCreateParams, auth SSHAuth
 	}
 
 	s := &SSHSession{
-		id:        id,
-		owner:     owner,
-		host:      params.Host,
-		port:      params.Port,
-		username:  params.Username,
-		createdAt: time.Now().UTC(),
-		client:    client,
-		shell:     shell,
-		stdin:     stdin,
-		done:      make(chan struct{}),
-		clients:   make(map[string]*AttachClient),
+		id:              id,
+		owner:           owner,
+		host:            params.Host,
+		port:            params.Port,
+		username:        params.Username,
+		createdAt:       time.Now().UTC(),
+		client:          client,
+		shell:           shell,
+		stdin:           stdin,
+		done:            make(chan struct{}),
+		clients:         make(map[string]*AttachClient),
+		scrollbackLimit: defaultScrollbackLimitBytes,
 	}
 
 	go s.pumpOutput(stdout)
@@ -190,16 +196,16 @@ func (s *SSHSession) Done() <-chan struct{} {
 	return s.done
 }
 
-func (s *SSHSession) RegisterClient(writable bool) (*AttachClient, error) {
+func (s *SSHSession) RegisterClient(writable bool) (*AttachClient, []byte, error) {
 	clientID, err := randomHex(6)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		return nil, errors.New("session is closed")
+		return nil, nil, errors.New("session is closed")
 	}
 
 	client := &AttachClient{
@@ -208,7 +214,10 @@ func (s *SSHSession) RegisterClient(writable bool) (*AttachClient, error) {
 		Outbound: make(chan []byte, 128),
 	}
 	s.clients[clientID] = client
-	return client, nil
+
+	replay := make([]byte, len(s.scrollback))
+	copy(replay, s.scrollback)
+	return client, replay, nil
 }
 
 func (s *SSHSession) UnregisterClient(clientID string) {
@@ -253,6 +262,7 @@ func (s *SSHSession) Close() error {
 		s.mu.Lock()
 		s.closed = true
 		s.clients = make(map[string]*AttachClient)
+		s.scrollback = nil
 		s.mu.Unlock()
 
 		close(s.done)
@@ -288,12 +298,13 @@ func (s *SSHSession) pumpOutput(r io.Reader) {
 }
 
 func (s *SSHSession) broadcast(data []byte) {
-	s.mu.RLock()
+	s.mu.Lock()
+	s.appendScrollbackLocked(data)
 	clients := make([]*AttachClient, 0, len(s.clients))
 	for _, client := range s.clients {
 		clients = append(clients, client)
 	}
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	for _, client := range clients {
 		select {
@@ -302,4 +313,21 @@ func (s *SSHSession) broadcast(data []byte) {
 			// Keep the session healthy if one client is too slow.
 		}
 	}
+}
+
+func (s *SSHSession) appendScrollbackLocked(chunk []byte) {
+	if s.scrollbackLimit <= 0 || len(chunk) == 0 {
+		return
+	}
+	if len(chunk) >= s.scrollbackLimit {
+		s.scrollback = append(s.scrollback[:0], chunk[len(chunk)-s.scrollbackLimit:]...)
+		return
+	}
+
+	newLen := len(s.scrollback) + len(chunk)
+	if newLen > s.scrollbackLimit {
+		drop := newLen - s.scrollbackLimit
+		s.scrollback = s.scrollback[drop:]
+	}
+	s.scrollback = append(s.scrollback, chunk...)
 }

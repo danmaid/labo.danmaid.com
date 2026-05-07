@@ -246,12 +246,18 @@ func (s *Server) handleWebSocketAttach(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	client, err := session.RegisterClient(grant.Writable)
+	client, replay, err := session.RegisterClient(grant.Writable)
 	if err != nil {
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "session closed"))
 		return
 	}
 	defer session.UnregisterClient(client.ID)
+
+	if len(replay) > 0 {
+		if err := conn.WriteMessage(websocket.BinaryMessage, replay); err != nil {
+			return
+		}
+	}
 
 	done := make(chan struct{})
 	go func() {
