@@ -28,8 +28,8 @@
       font-size: 14px;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left,  rgba(214,103,58,.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(0,106,106,.16),  transparent 30%),
+        radial-gradient(circle at top left, rgba(214,103,58,.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(0,106,106,.16), transparent 30%),
         linear-gradient(180deg, #fbf7f0, var(--bg));
     }
 
@@ -105,8 +105,8 @@
       text-align: left;
     }
     button.secondary { background: linear-gradient(135deg, var(--accent2), #aa4822); }
-    button.ghost      { background: linear-gradient(135deg, #8f8d84, #6f6b63); }
-    button:hover  { transform: translateY(-1px); }
+    button.ghost { background: linear-gradient(135deg, #8f8d84, #6f6b63); }
+    button:hover { transform: translateY(-1px); }
     button:active { transform: translateY(0); }
     button:disabled { opacity: .45; cursor: default; transform: none; }
     .meta {
@@ -161,7 +161,7 @@
       background: rgba(31,42,47,.08);
       color: var(--muted);
     }
-    .status.ok  { background: rgba(45,122,71,.14);  color: var(--ok); }
+    .status.ok { background: rgba(45,122,71,.14); color: var(--ok); }
     .status.bad { background: rgba(163,54,54,.14); color: var(--bad); }
 
     .xterm-container {
@@ -182,6 +182,141 @@
       flex-shrink: 0;
     }
   </style>
+
+  <script>
+    var state = {
+      sessionId: "",
+      sessions: [],
+      writerSize: null,
+      readonlySize: null,
+    };
+
+    function log(msg, obj) {
+      var metaLog = document.getElementById("metaLog");
+      if (!metaLog) return;
+      var out = obj === undefined ? msg : `${msg}\n${JSON.stringify(obj, null, 2)}`;
+      metaLog.textContent = `${new Date().toLocaleTimeString()} ${out}\n\n${metaLog.textContent}`.trim();
+    }
+
+    function setStatus(target, text, kind) {
+      if (!target) return;
+      target.textContent = text;
+      target.className = `status ${kind || ""}`.trim();
+    }
+
+    function setSessionId(id) {
+      state.sessionId = id || "";
+      document.dispatchEvent(new CustomEvent("sessionchange"));
+    }
+
+    function syncState(el) {
+      function update() { el.disabled = !state.sessionId; }
+      document.addEventListener("sessionchange", update);
+      update();
+    }
+
+    function authHeaders() {
+      var authToken = document.getElementById("authToken");
+      return {
+        "Authorization": `Bearer ${authToken.value.trim()}`,
+        "Content-Type": "application/json",
+      };
+    }
+
+    function authOnlyHeaders() {
+      var authToken = document.getElementById("authToken");
+      return {
+        "Authorization": `Bearer ${authToken.value.trim()}`,
+      };
+    }
+
+    async function api(path, init) {
+      var baseUrl = document.getElementById("baseUrl");
+      var base = baseUrl.value.replace(/\/$/, "");
+      var url = base + path;
+      var method = (init?.method || "GET").toUpperCase();
+      var startedAt = performance.now();
+      log(`HTTP ${method} ${url}`);
+
+      var res = await fetch(url, init);
+      var elapsedMs = Math.round(performance.now() - startedAt);
+      var text = await res.text();
+
+      var json = null;
+      if (text) {
+        try { json = JSON.parse(text); } catch { json = null; }
+      }
+
+      if (json !== null) {
+        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`, json);
+      } else {
+        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`);
+      }
+
+      if (!res.ok) {
+        var message = json?.error ?? text ?? res.statusText;
+        throw new Error(`[${res.status}] ${message}`);
+      }
+
+      return json;
+    }
+
+    function requireSelectedSession() {
+      if (!state.sessionId) throw new Error("session is not selected");
+      return state.sessionId;
+    }
+
+    async function refreshSessions() {
+      var result = await api("/sessions", { method: "GET", headers: authOnlyHeaders() });
+      state.sessions = Array.isArray(result) ? result : [];
+
+      var sessionSelect = document.getElementById("sessionSelect");
+      if (sessionSelect) {
+        var keep = state.sessionId;
+        sessionSelect.innerHTML = "";
+
+        var empty = document.createElement("option");
+        empty.value = "";
+        empty.textContent = state.sessions.length ? "(select a session)" : "(no sessions)";
+        sessionSelect.appendChild(empty);
+
+        for (var s of state.sessions) {
+          var opt = document.createElement("option");
+          opt.value = s.session_id;
+          opt.textContent = `${s.session_id} | ${s.username}@${s.host}:${s.port} | owner=${s.owner} | clients=${s.client_count}`;
+          sessionSelect.appendChild(opt);
+        }
+
+        if (keep && state.sessions.some(s => s.session_id === keep)) {
+          setSessionId(keep);
+        } else {
+          setSessionId("");
+        }
+      }
+
+      log("sessions refreshed", { count: state.sessions.length });
+    }
+
+    function mountTerminal({ containerEl, host, url, readonly, onResize, onStatus }) {
+      if (!containerEl) return;
+      containerEl.innerHTML = "";
+
+      var term = document.createElement("dm-ssh-terminal");
+      if (host) term.setAttribute("host", host);
+      if (url) term.setAttribute("url", url);
+      if (readonly) term.setAttribute("readonly", "");
+
+      term.addEventListener("dm-ssh-terminal:resize", ev => {
+        onResize?.({ cols: ev.detail?.cols, rows: ev.detail?.rows });
+      });
+
+      term.addEventListener("dm-ssh-terminal:status", ev => {
+        onStatus?.(ev.detail?.status || "idle");
+      });
+
+      containerEl.appendChild(term);
+    }
+  </script>
 </head>
 <body>
   <aside class="sidebar">
@@ -209,13 +344,167 @@
     </div>
 
     <div class="section buttons">
-      <button id="healthBtn" class="ghost">1. Health Check</button>
-      <button id="refreshBtn" class="ghost">2. Refresh Session List</button>
-      <button id="createBtn">3. Create + Attach Writer</button>
-      <button id="attachWriterBtn" class="secondary" disabled>4. Attach Writer to Selected</button>
-      <button id="readonlyBtn" class="secondary" disabled>5. Attach Readonly Mirror</button>
-      <button id="resizeBtn" class="secondary" disabled>6. Sync Resize to PTY</button>
-      <button id="deleteBtn" class="ghost" disabled>7. Delete Selected Session</button>
+      <button id="healthBtn" class="ghost">1. Health Check
+        <script>
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const result = await api("/healthz", { method: "GET" });
+            log("health", result);
+          });
+        </script>
+      </button>
+      <button id="refreshBtn" class="ghost">2. Refresh Session List
+        <script>
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            await refreshSessions();
+          });
+        </script>
+      </button>
+      <button id="createBtn">3. Create + Attach Writer
+        <script>
+          const portInput = document.getElementById("port");
+          const usernameInput = document.getElementById("username");
+          const passwordInput = document.getElementById("password");
+
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const st = state;
+
+            setSessionId("");
+            clearTerminal(writerContainer);
+            clearTerminal(readonlyContainer);
+            setStatus(writerStatus, "creating...", "");
+            setStatus(readonlyStatus, "idle", "");
+
+            const result = await api("/sessions", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({
+                host: hostInput.value.trim(),
+                port: Number(portInput.value),
+                username: usernameInput.value.trim(),
+                password: passwordInput.value,
+                pty_cols: st.writerSize?.cols ?? 120,
+                pty_rows: st.writerSize?.rows ?? 40,
+              }),
+            });
+
+            st.sessionId = result.session_id;
+            log("session created", result);
+            mountTerminal({
+              containerEl: writerContainer,
+              host: hostInput.value.trim(),
+              url: result.writer_ws_url,
+              onResize: size => { st.writerSize = size; },
+              onStatus: status => setStatus(writerStatus, status, ""),
+            });
+            setStatus(writerStatus, "attached", "ok");
+
+            await refreshSessions();
+            setSessionId(result.session_id);
+          });
+        </script>
+      </button>
+      <button id="attachWriterBtn" class="secondary" disabled>4. Attach Writer to Selected
+        <script>
+          syncState(document.currentScript.parentElement);
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const st = state;
+            const sessionId = requireSelectedSession();
+
+            clearTerminal(writerContainer);
+            const result = await api(`/sessions/${sessionId}/attach-tokens`, {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ mode: "writer", ttl_seconds: Number(ttlInput.value) }),
+            });
+
+            log("writer token issued", result);
+            mountTerminal({
+              containerEl: writerContainer,
+              host: hostInput.value.trim(),
+              url: result.ws_url,
+              onResize: size => { st.writerSize = size; },
+              onStatus: status => setStatus(writerStatus, status, ""),
+            });
+            setStatus(writerStatus, "attached", "ok");
+
+            await refreshSessions();
+            setSessionId(sessionId);
+          });
+        </script>
+      </button>
+      <button id="readonlyBtn" class="secondary" disabled>5. Attach Readonly Mirror
+        <script>
+          syncState(document.currentScript.parentElement);
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const st = state;
+            const sessionId = requireSelectedSession();
+
+            clearTerminal(readonlyContainer);
+            const result = await api(`/sessions/${sessionId}/attach-tokens`, {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ mode: "readonly", ttl_seconds: Number(ttlInput.value) }),
+            });
+
+            log("readonly token issued", result);
+            mountTerminal({
+              containerEl: readonlyContainer,
+              host: hostInput.value.trim(),
+              url: result.ws_url,
+              readonly: true,
+              onResize: size => { st.readonlySize = size; },
+              onStatus: status => setStatus(readonlyStatus, status, ""),
+            });
+            setStatus(readonlyStatus, "attached", "ok");
+
+            await refreshSessions();
+            setSessionId(sessionId);
+          });
+        </script>
+      </button>
+      <button id="resizeBtn" class="secondary" disabled>6. Sync Resize to PTY
+        <script>
+          syncState(document.currentScript.parentElement);
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const st = state;
+            const sessionId = requireSelectedSession();
+            if (!st.writerSize?.cols || !st.writerSize?.rows) {
+              throw new Error("writer size event is not available yet (to be implemented in dm-ssh-terminal)");
+            }
+
+            const result = await api(`/sessions/${sessionId}/resize`, {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ cols: st.writerSize.cols, rows: st.writerSize.rows }),
+            });
+            log(`resize -> ${st.writerSize.cols}x${st.writerSize.rows}`, result);
+          });
+        </script>
+      </button>
+      <button id="deleteBtn" class="ghost" disabled>7. Delete Selected Session
+        <script>
+          syncState(document.currentScript.parentElement);
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const st = state;
+            const sessionId = requireSelectedSession();
+
+            const result = await api(`/sessions/${sessionId}`, {
+              method: "DELETE",
+              headers: authOnlyHeaders(),
+            });
+
+            log("session deleted", result);
+            setSessionId("");
+            st.sessions = [];
+            clearTerminal(writerContainer);
+            clearTerminal(readonlyContainer);
+            setStatus(writerStatus, "idle", "");
+            setStatus(readonlyStatus, "idle", "");
+
+            await refreshSessions();
+          });
+        </script>
+      </button>
     </div>
 
     <div class="section">
@@ -224,8 +513,29 @@
         <select id="sessionSelect">
           <option value="">(none)</option>
         </select>
+        <script>
+          const sessionSelect = document.currentScript.previousElementSibling;
+          sessionSelect.addEventListener("change", () => {
+            setSessionId(sessionSelect.value);
+          });
+          document.addEventListener("sessionchange", () => {
+            sessionSelect.value = state.sessionId;
+          });
+        </script>
       </label>
-      <button id="detailBtn" class="ghost" disabled>Show Selected Detail</button>
+      <button id="detailBtn" class="ghost" disabled>Show Selected Detail
+        <script>
+          syncState(document.currentScript.parentElement);
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const sessionId = requireSelectedSession();
+            const result = await api(`/sessions/${sessionId}`, {
+              method: "GET",
+              headers: authOnlyHeaders(),
+            });
+            log("session detail", result);
+          });
+        </script>
+      </button>
       <div class="hint">一覧取得後、ここからセッションを選んで attach/resize/delete を試せます。</div>
     </div>
 
@@ -256,334 +566,18 @@
   </main>
 
   <script>
-  (function () {
-    "use strict";
+    const writerContainer = document.getElementById("writerContainer");
+    const readonlyContainer = document.getElementById("readonlyContainer");
+    const writerStatus = document.getElementById("writerStatus");
+    const readonlyStatus = document.getElementById("readonlyStatus");
+    const hostInput = document.getElementById("host");
+    const ttlInput = document.getElementById("ttl");
 
-    const state = {
-      sessionId: "",
-      sessions: [],
-      writerSize: null,
-      readonlySize: null,
-    };
-
-    const $ = id => document.getElementById(id);
-    const el = {
-      baseUrl:        $("baseUrl"),
-      authToken:      $("authToken"),
-      host:           $("host"),
-      port:           $("port"),
-      ttl:            $("ttl"),
-      username:       $("username"),
-      password:       $("password"),
-      sessionSelect:  $("sessionSelect"),
-      metaLog:        $("metaLog"),
-      healthBtn:      $("healthBtn"),
-      refreshBtn:     $("refreshBtn"),
-      createBtn:      $("createBtn"),
-      attachWriterBtn:$("attachWriterBtn"),
-      detailBtn:      $("detailBtn"),
-      resizeBtn:      $("resizeBtn"),
-      readonlyBtn:    $("readonlyBtn"),
-      deleteBtn:      $("deleteBtn"),
-      writerStatus:   $("writerStatus"),
-      readonlyStatus: $("readonlyStatus"),
-    };
-    el.baseUrl.value = window.location.origin;
-
-    function log(msg, obj) {
-      const body = obj === undefined ? msg : `${msg}\n${JSON.stringify(obj, null, 2)}`;
-      el.metaLog.textContent = `${new Date().toLocaleTimeString()} ${body}\n\n${el.metaLog.textContent}`.trim();
-    }
-
-    function setStatus(target, text, kind) {
-      target.textContent = text;
-      target.className = `status ${kind || ""}`.trim();
-    }
-
-    function syncButtons() {
-      const has = Boolean(state.sessionId);
-      el.attachWriterBtn.disabled = !has;
-      el.detailBtn.disabled = !has;
-      el.resizeBtn.disabled = !has;
-      el.readonlyBtn.disabled = !has;
-      el.deleteBtn.disabled = !has;
-    }
-
-    function authHeaders() {
-      return {
-        "Authorization": `Bearer ${el.authToken.value.trim()}`,
-        "Content-Type": "application/json",
-      };
-    }
-
-    function authOnlyHeaders() {
-      return {
-        "Authorization": `Bearer ${el.authToken.value.trim()}`,
-      };
-    }
-
-    async function api(path, init) {
-      const base = el.baseUrl.value.replace(/\/$/, "");
-      const url = base + path;
-      const method = (init?.method || "GET").toUpperCase();
-      const startedAt = performance.now();
-      log(`HTTP ${method} ${url}`);
-
-      const res = await fetch(url, init);
-      const elapsedMs = Math.round(performance.now() - startedAt);
-      const text = await res.text();
-
-      let json = null;
-      if (text) {
-        try {
-          json = JSON.parse(text);
-        } catch {
-          json = null;
-        }
-      }
-
-      if (json !== null) {
-        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`, json);
-      } else {
-        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`);
-      }
-
-      if (!res.ok) {
-        const message = json?.error ?? text ?? res.statusText;
-        throw new Error(`[${res.status}] ${message}`);
-      }
-      return json;
-    }
-
-    function selectedSessionId() {
-      return el.sessionSelect.value || "";
-    }
-
-    function setSelectedSession(sessionId) {
-      state.sessionId = sessionId || "";
-      el.sessionSelect.value = state.sessionId;
-      syncButtons();
-    }
-
-    function sessionOptionLabel(s) {
-      return `${s.session_id} | ${s.username}@${s.host}:${s.port} | owner=${s.owner} | clients=${s.client_count}`;
-    }
-
-    function renderSessionOptions() {
-      const keep = state.sessionId;
-      el.sessionSelect.innerHTML = "";
-      const empty = document.createElement("option");
-      empty.value = "";
-      empty.textContent = state.sessions.length ? "(select a session)" : "(no sessions)";
-      el.sessionSelect.appendChild(empty);
-
-      for (const s of state.sessions) {
-        const opt = document.createElement("option");
-        opt.value = s.session_id;
-        opt.textContent = sessionOptionLabel(s);
-        el.sessionSelect.appendChild(opt);
-      }
-
-      if (keep && state.sessions.some(s => s.session_id === keep)) {
-        setSelectedSession(keep);
-      } else {
-        setSelectedSession("");
-      }
-    }
-
-    function requireSelectedSession() {
-      const id = selectedSessionId();
-      if (!id) throw new Error("session is not selected");
-      state.sessionId = id;
-      return id;
-    }
-
-    function clearTerminal(containerId) {
-      const container = $(containerId);
-      container.innerHTML = "";
-    }
-
-    function mountTerminal({ containerId, host, url, readonly }) {
-      const container = $(containerId);
-      container.innerHTML = "";
-
-      const term = document.createElement("dm-ssh-terminal");
-      if (host) term.setAttribute("host", host);
-      if (url) term.setAttribute("url", url);
-      if (readonly) term.setAttribute("readonly", "");
-
-      // Placeholder bridge: events will be emitted in a later dm implementation.
-      term.addEventListener("dm-ssh-terminal:resize", ev => {
-        const next = { cols: ev.detail?.cols, rows: ev.detail?.rows };
-        if (containerId === "writerContainer") state.writerSize = next;
-        if (containerId === "readonlyContainer") state.readonlySize = next;
-      });
-
-      term.addEventListener("dm-ssh-terminal:status", ev => {
-        const statusText = ev.detail?.status || "idle";
-        if (containerId === "writerContainer") setStatus(el.writerStatus, statusText, "");
-        if (containerId === "readonlyContainer") setStatus(el.readonlyStatus, statusText, "");
-      });
-
-      container.appendChild(term);
-      return term;
-    }
-
-    async function createSession() {
-      state.sessionId = "";
-      clearTerminal("writerContainer");
-      clearTerminal("readonlyContainer");
-      setStatus(el.writerStatus, "creating…", "");
-      setStatus(el.readonlyStatus, "idle", "");
-      syncButtons();
-
-      const result = await api("/sessions", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          host: el.host.value.trim(),
-          port: Number(el.port.value),
-          username: el.username.value.trim(),
-          password: el.password.value,
-          pty_cols: state.writerSize?.cols ?? 120,
-          pty_rows: state.writerSize?.rows ?? 40,
-        }),
-      });
-
-      state.sessionId = result.session_id;
-      log("session created", result);
-      mountTerminal({
-        containerId: "writerContainer",
-        host: el.host.value.trim(),
-        url: result.writer_ws_url,
-      });
-      setStatus(el.writerStatus, "attached", "ok");
-      await refreshSessions();
-      setSelectedSession(result.session_id);
-      syncButtons();
-    }
-
-    async function healthCheck() {
-      const result = await api("/healthz", { method: "GET" });
-      log("health", result);
-    }
-
-    async function refreshSessions() {
-      const result = await api("/sessions", {
-        method: "GET",
-        headers: authOnlyHeaders(),
-      });
-      state.sessions = Array.isArray(result) ? result : [];
-      renderSessionOptions();
-      log("sessions refreshed", { count: state.sessions.length });
-    }
-
-    async function showSelectedDetail() {
-      const sessionId = requireSelectedSession();
-      const result = await api(`/sessions/${sessionId}`, {
-        method: "GET",
-        headers: authOnlyHeaders(),
-      });
-      log("session detail", result);
-    }
-
-    async function attachWriter() {
-      const sessionId = requireSelectedSession();
-      clearTerminal("writerContainer");
-      const result = await api(`/sessions/${sessionId}/attach-tokens`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ mode: "writer", ttl_seconds: Number(el.ttl.value) }),
-      });
-      log("writer token issued", result);
-      mountTerminal({
-        containerId: "writerContainer",
-        host: el.host.value.trim(),
-        url: result.ws_url,
-      });
-      setStatus(el.writerStatus, "attached", "ok");
-      await refreshSessions();
-      setSelectedSession(sessionId);
-    }
-
-    async function resizeSession() {
-      const sessionId = requireSelectedSession();
-      if (!state.writerSize?.cols || !state.writerSize?.rows) {
-        throw new Error("writer size event is not available yet (to be implemented in dm-ssh-terminal)");
-      }
-
-      const cols = state.writerSize.cols;
-      const rows = state.writerSize.rows;
-      const result = await api(`/sessions/${sessionId}/resize`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ cols, rows }),
-      });
-      log(`resize -> ${cols}x${rows}`, result);
-    }
-
-    async function attachReadonly() {
-      const sessionId = requireSelectedSession();
-      clearTerminal("readonlyContainer");
-      const result = await api(`/sessions/${sessionId}/attach-tokens`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ mode: "readonly", ttl_seconds: Number(el.ttl.value) }),
-      });
-      log("readonly token issued", result);
-      mountTerminal({
-        containerId: "readonlyContainer",
-        host: el.host.value.trim(),
-        url: result.ws_url,
-        readonly: true,
-      });
-      setStatus(el.readonlyStatus, "attached", "ok");
-      await refreshSessions();
-      setSelectedSession(sessionId);
-    }
-
-    async function deleteSession() {
-      const sessionId = requireSelectedSession();
-      const result = await api(`/sessions/${sessionId}`, {
-        method: "DELETE",
-        headers: authOnlyHeaders(),
-      });
-      log("session deleted", result);
-      state.sessionId = "";
-      state.sessions = [];
-      clearTerminal("writerContainer");
-      clearTerminal("readonlyContainer");
-      setStatus(el.writerStatus, "idle", "");
-      setStatus(el.readonlyStatus, "idle", "");
-      await refreshSessions();
-      syncButtons();
-    }
-
-    async function wrap(fn, statusEl) {
-      try {
-        await fn();
-      } catch (err) {
-        log("error", { message: err.message });
-        if (statusEl) setStatus(statusEl, "error", "bad");
-      }
-    }
-
-    el.healthBtn.addEventListener("click", () => wrap(healthCheck));
-    el.refreshBtn.addEventListener("click", () => wrap(refreshSessions));
-    el.createBtn.addEventListener("click", () => wrap(createSession, el.writerStatus));
-    el.attachWriterBtn.addEventListener("click", () => wrap(attachWriter, el.writerStatus));
-    el.detailBtn.addEventListener("click", () => wrap(showSelectedDetail));
-    el.resizeBtn.addEventListener("click", () => wrap(resizeSession));
-    el.readonlyBtn.addEventListener("click", () => wrap(attachReadonly, el.readonlyStatus));
-    el.deleteBtn.addEventListener("click", () => wrap(deleteSession));
-    el.sessionSelect.addEventListener("change", () => setSelectedSession(selectedSessionId()));
-
-    syncButtons();
-    $("writerContainer").textContent = "Create or attach a session to mount dm-ssh-terminal.";
-    $("readonlyContainer").textContent = "Attach readonly token to mount dm-ssh-terminal mirror.";
+    document.getElementById("baseUrl").value = window.location.origin;
+    writerContainer.textContent = "Create or attach a session to mount dm-ssh-terminal.";
+    readonlyContainer.textContent = "Attach readonly token to mount dm-ssh-terminal mirror.";
     log("ready");
-    wrap(refreshSessions);
-  })();
+    refreshSessions();
   </script>
 </body>
 </html>
