@@ -55,12 +55,27 @@ func main() {
 
 	log.Printf("listening on %s", listenAddr)
 	log.Printf("bootstrap REST auth token: %s", defaultAuth)
-	log.Fatal(http.ListenAndServe(listenAddr, logRequest(mux)))
+	log.Fatal(http.ListenAndServe(listenAddr, logRequest(withCORS(mux))))
 }
 
 func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s", r.Method, r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
