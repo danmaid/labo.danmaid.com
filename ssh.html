@@ -2,9 +2,10 @@
 <html>
 
 <head>
+  <link rel="stylesheet" href="css/full-screen.css">
 </head>
 
-<body>
+<body class="full-screen" style="padding: 8px; overflow: hidden;">
   <dm-ssh-terminal host="nanopi-r1.local"></dm-ssh-terminal>
   <!-- 
   <dm-ssh-terminal>  (Web Component)
@@ -31,14 +32,24 @@
     const cssUrl = "https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css"
     const cssText = await fetch(cssUrl).then(r => r.text())
 
-    const sheet = new CSSStyleSheet()
-    await sheet.replace(cssText)
+    const xtermCss = new CSSStyleSheet()
+    await xtermCss.replace(cssText)
+
+    const defaultCss = new CSSStyleSheet()
+    await defaultCss.insertRule(`
+      :host, .container {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }`)
 
     class DmSshTerminal extends HTMLElement {
+      static get observedAttributes() { return ["url"] }
+
       constructor() {
         super()
         this.attachShadow({ mode: "open" })
-        this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]
+        this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, xtermCss, defaultCss]
       }
 
       connectedCallback() {
@@ -88,6 +99,7 @@
     class TerminalView {
       constructor(root) {
         const container = document.createElement("div")
+        container.className = "container"
         root.appendChild(container)
 
         this.term = new Terminal({
@@ -100,7 +112,7 @@
         this.term.open(container)
         this.fit.fit()
 
-        window.addEventListener("resize", () => this.fit.fit())
+        new ResizeObserver(() => this.fit.fit()).observe(container)
       }
 
       write(data) {
@@ -108,7 +120,8 @@
       }
 
       onInput(cb) {
-        this.term.onData(cb)
+        this._inputDisposable?.dispose()
+        this._inputDisposable = this.term.onData(cb)
       }
 
       getSize() {
@@ -152,7 +165,9 @@
       open() {
         this.ws = new WebSocket(this.url)
         this.ws.binaryType = "arraybuffer"
-        this.ws.onmessage = e => this.onData(e.data)
+        this.ws.onmessage = e => this.onData(
+          e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data
+        )
       }
 
       send(data) {
