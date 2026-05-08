@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SSH Broker</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.min.css">
+  <script type="module" src="./dm-ssh-terminal.mjs"></script>
   <style>
     :root {
       --bg: #f4efe6;
@@ -33,7 +33,6 @@
         linear-gradient(180deg, #fbf7f0, var(--bg));
     }
 
-    /* ── sidebar ─────────────────────────────────────────────── */
     .sidebar {
       width: var(--sidebar);
       min-width: var(--sidebar);
@@ -124,7 +123,6 @@
       margin-top: 6px;
     }
 
-    /* ── workspace ───────────────────────────────────────────── */
     .workspace {
       flex: 1;
       min-width: 0;
@@ -173,8 +171,9 @@
       overflow: hidden;
       background: #171917;
       padding: 6px;
+      color: #b7c7b3;
+      font: 12px/1.4 "Azeret Mono", "Consolas", monospace;
     }
-    .xterm-container .xterm { height: 100%; }
 
     .divider {
       height: 1px;
@@ -185,7 +184,6 @@
   </style>
 </head>
 <body>
-  <!-- ── sidebar ─────────────────────────────────────── -->
   <aside class="sidebar">
     <div class="sidebar-title">SSH Broker</div>
 
@@ -237,7 +235,6 @@
     </div>
   </aside>
 
-  <!-- ── workspace ──────────────────────────────────── -->
   <main class="workspace">
     <div class="term-wrap">
       <div class="term-head">
@@ -258,16 +255,17 @@
     </div>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.min.js"></script>
   <script>
   (function () {
     "use strict";
 
-    // ── state ────────────────────────────────────────────────────
-    const state = { sessionId: "", writerWs: null, readonlyWs: null, sessions: [] };
+    const state = {
+      sessionId: "",
+      sessions: [],
+      writerSize: null,
+      readonlySize: null,
+    };
 
-    // ── element refs ─────────────────────────────────────────────
     const $ = id => document.getElementById(id);
     const el = {
       baseUrl:        $("baseUrl"),
@@ -292,62 +290,14 @@
     };
     el.baseUrl.value = window.location.origin;
 
-    // ── xterm setup ──────────────────────────────────────────────
-    const commonTheme = { background: "#171917" };
-
-    const writerTerm = new Terminal({
-      cursorBlink: true,
-      fontFamily: '"Cascadia Code", "Fira Code", "Consolas", monospace',
-      fontSize: 14,
-      theme: { ...commonTheme, foreground: "#e4edc8", cursor: "#f0c674", selectionBackground: "#3d5038" },
-      scrollback: 3000,
-      convertEol: true,
-    });
-    const readonlyTerm = new Terminal({
-      disableStdin: true,
-      fontFamily: '"Cascadia Code", "Fira Code", "Consolas", monospace',
-      fontSize: 13,
-      theme: { ...commonTheme, foreground: "#99b8c8", cursor: "transparent" },
-      scrollback: 1000,
-      convertEol: true,
-    });
-
-    const writerFit   = new FitAddon.FitAddon();
-    const readonlyFit = new FitAddon.FitAddon();
-    writerTerm.loadAddon(writerFit);
-    readonlyTerm.loadAddon(readonlyFit);
-
-    writerTerm.open($("writerContainer"));
-    readonlyTerm.open($("readonlyContainer"));
-    writerFit.fit();
-    readonlyFit.fit();
-
-    // Forward keystrokes from writer terminal to the SSH PTY.
-    writerTerm.onData(data => {
-      if (state.writerWs && state.writerWs.readyState === WebSocket.OPEN) {
-        state.writerWs.send(data);
-      }
-    });
-
-    // Re-fit on resize. The "2. Sync Resize" button sends the new
-    // dimensions to the server because PTY resize is a control-plane
-    // action, not something the WebSocket layer handles automatically.
-    const resizeObserver = new ResizeObserver(() => {
-      writerFit.fit();
-      readonlyFit.fit();
-    });
-    resizeObserver.observe($("writerContainer"));
-    resizeObserver.observe($("readonlyContainer"));
-
-    // ── helpers ──────────────────────────────────────────────────
     function log(msg, obj) {
       const body = obj === undefined ? msg : `${msg}\n${JSON.stringify(obj, null, 2)}`;
       el.metaLog.textContent = `${new Date().toLocaleTimeString()} ${body}\n\n${el.metaLog.textContent}`.trim();
     }
 
-    function setStatus(el, text, kind) {
-      el.textContent = text;
-      el.className   = `status ${kind || ""}`.trim();
+    function setStatus(target, text, kind) {
+      target.textContent = text;
+      target.className = `status ${kind || ""}`.trim();
     }
 
     function syncButtons() {
@@ -405,10 +355,6 @@
       return json;
     }
 
-    function closeWs(ws) {
-      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-    }
-
     function selectedSessionId() {
       return el.sessionSelect.value || "";
     }
@@ -452,48 +398,42 @@
       return id;
     }
 
-    function openWs(url, term, statusEl, label) {
-      return new Promise((resolve, reject) => {
-        log(`WS CONNECT ${label} ${url}`);
-        const ws = new WebSocket(url);
-        ws.binaryType = "arraybuffer";
-
-        ws.addEventListener("open", () => {
-          log(`WS OPEN ${label}`);
-          setStatus(statusEl, "attached", "ok");
-          term.writeln(`\r\n\x1b[32m[${label} attached]\x1b[0m`);
-          resolve(ws);
-        }, { once: true });
-
-        ws.addEventListener("message", ev => {
-          const bytes = typeof ev.data === "string"
-            ? ev.data
-            : new TextDecoder().decode(ev.data);
-          term.write(bytes);
-        });
-
-        ws.addEventListener("close", () => {
-          log(`WS CLOSE ${label}`);
-          setStatus(statusEl, "closed", "bad");
-          term.writeln(`\r\n\x1b[31m[${label} disconnected]\x1b[0m`);
-        });
-
-        ws.addEventListener("error", () => {
-          log(`WS ERROR ${label}`);
-          setStatus(statusEl, "error", "bad");
-          if (ws.readyState !== WebSocket.OPEN) reject(new Error(`${label}: connect failed`));
-        }, { once: true });
-      });
+    function clearTerminal(containerId) {
+      const container = $(containerId);
+      container.innerHTML = "";
     }
 
-    // ── actions ──────────────────────────────────────────────────
+    function mountTerminal({ containerId, host, url, readonly }) {
+      const container = $(containerId);
+      container.innerHTML = "";
+
+      const term = document.createElement("dm-ssh-terminal");
+      if (host) term.setAttribute("host", host);
+      if (url) term.setAttribute("url", url);
+      if (readonly) term.setAttribute("readonly", "");
+
+      // Placeholder bridge: events will be emitted in a later dm implementation.
+      term.addEventListener("dm-ssh-terminal:resize", ev => {
+        const next = { cols: ev.detail?.cols, rows: ev.detail?.rows };
+        if (containerId === "writerContainer") state.writerSize = next;
+        if (containerId === "readonlyContainer") state.readonlySize = next;
+      });
+
+      term.addEventListener("dm-ssh-terminal:status", ev => {
+        const statusText = ev.detail?.status || "idle";
+        if (containerId === "writerContainer") setStatus(el.writerStatus, statusText, "");
+        if (containerId === "readonlyContainer") setStatus(el.readonlyStatus, statusText, "");
+      });
+
+      container.appendChild(term);
+      return term;
+    }
+
     async function createSession() {
-      closeWs(state.writerWs);
-      closeWs(state.readonlyWs);
       state.sessionId = "";
-      writerTerm.reset();
-      readonlyTerm.reset();
-      setStatus(el.writerStatus,   "creating…", "");
+      clearTerminal("writerContainer");
+      clearTerminal("readonlyContainer");
+      setStatus(el.writerStatus, "creating…", "");
       setStatus(el.readonlyStatus, "idle", "");
       syncButtons();
 
@@ -501,18 +441,23 @@
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          host:     el.host.value.trim(),
-          port:     Number(el.port.value),
+          host: el.host.value.trim(),
+          port: Number(el.port.value),
           username: el.username.value.trim(),
           password: el.password.value,
-          pty_cols: writerTerm.cols,
-          pty_rows: writerTerm.rows,
+          pty_cols: state.writerSize?.cols ?? 120,
+          pty_rows: state.writerSize?.rows ?? 40,
         }),
       });
 
       state.sessionId = result.session_id;
       log("session created", result);
-      state.writerWs = await openWs(result.writer_ws_url, writerTerm, el.writerStatus, "writer");
+      mountTerminal({
+        containerId: "writerContainer",
+        host: el.host.value.trim(),
+        url: result.writer_ws_url,
+      });
+      setStatus(el.writerStatus, "attached", "ok");
       await refreshSessions();
       setSelectedSession(result.session_id);
       syncButtons();
@@ -544,45 +489,55 @@
 
     async function attachWriter() {
       const sessionId = requireSelectedSession();
-      writerTerm.reset();
-      writerTerm.writeln("\x1b[33mrequesting writer token…\x1b[0m");
+      clearTerminal("writerContainer");
       const result = await api(`/sessions/${sessionId}/attach-tokens`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ mode: "writer", ttl_seconds: Number(el.ttl.value) }),
       });
       log("writer token issued", result);
-      closeWs(state.writerWs);
-      state.writerWs = await openWs(result.ws_url, writerTerm, el.writerStatus, "writer");
+      mountTerminal({
+        containerId: "writerContainer",
+        host: el.host.value.trim(),
+        url: result.ws_url,
+      });
+      setStatus(el.writerStatus, "attached", "ok");
       await refreshSessions();
       setSelectedSession(sessionId);
     }
 
     async function resizeSession() {
       const sessionId = requireSelectedSession();
-      // FitAddon has already updated writerTerm.cols / rows from the DOM.
-      const cols = writerTerm.cols;
-      const rows = writerTerm.rows;
+      if (!state.writerSize?.cols || !state.writerSize?.rows) {
+        throw new Error("writer size event is not available yet (to be implemented in dm-ssh-terminal)");
+      }
+
+      const cols = state.writerSize.cols;
+      const rows = state.writerSize.rows;
       const result = await api(`/sessions/${sessionId}/resize`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ cols, rows }),
       });
-      log(`resize → ${cols}×${rows}`, result);
+      log(`resize -> ${cols}x${rows}`, result);
     }
 
     async function attachReadonly() {
       const sessionId = requireSelectedSession();
-      readonlyTerm.reset();
-      readonlyTerm.writeln("\x1b[33mrequesting readonly token…\x1b[0m");
+      clearTerminal("readonlyContainer");
       const result = await api(`/sessions/${sessionId}/attach-tokens`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ mode: "readonly", ttl_seconds: Number(el.ttl.value) }),
       });
       log("readonly token issued", result);
-      closeWs(state.readonlyWs);
-      state.readonlyWs = await openWs(result.ws_url, readonlyTerm, el.readonlyStatus, "readonly");
+      mountTerminal({
+        containerId: "readonlyContainer",
+        host: el.host.value.trim(),
+        url: result.ws_url,
+        readonly: true,
+      });
+      setStatus(el.readonlyStatus, "attached", "ok");
       await refreshSessions();
       setSelectedSession(sessionId);
     }
@@ -594,17 +549,16 @@
         headers: authOnlyHeaders(),
       });
       log("session deleted", result);
-      closeWs(state.writerWs);
-      closeWs(state.readonlyWs);
       state.sessionId = "";
       state.sessions = [];
+      clearTerminal("writerContainer");
+      clearTerminal("readonlyContainer");
       setStatus(el.writerStatus, "idle", "");
       setStatus(el.readonlyStatus, "idle", "");
       await refreshSessions();
       syncButtons();
     }
 
-    // ── button wiring ────────────────────────────────────────────
     async function wrap(fn, statusEl) {
       try {
         await fn();
@@ -614,20 +568,19 @@
       }
     }
 
-    el.healthBtn.addEventListener("click",    () => wrap(healthCheck));
-    el.refreshBtn.addEventListener("click",   () => wrap(refreshSessions));
-    el.createBtn.addEventListener("click",    () => wrap(createSession,  el.writerStatus));
+    el.healthBtn.addEventListener("click", () => wrap(healthCheck));
+    el.refreshBtn.addEventListener("click", () => wrap(refreshSessions));
+    el.createBtn.addEventListener("click", () => wrap(createSession, el.writerStatus));
     el.attachWriterBtn.addEventListener("click", () => wrap(attachWriter, el.writerStatus));
-    el.detailBtn.addEventListener("click",    () => wrap(showSelectedDetail));
-    el.resizeBtn.addEventListener("click",    () => wrap(resizeSession));
-    el.readonlyBtn.addEventListener("click",  () => wrap(attachReadonly, el.readonlyStatus));
-    el.deleteBtn.addEventListener("click",    () => wrap(deleteSession));
+    el.detailBtn.addEventListener("click", () => wrap(showSelectedDetail));
+    el.resizeBtn.addEventListener("click", () => wrap(resizeSession));
+    el.readonlyBtn.addEventListener("click", () => wrap(attachReadonly, el.readonlyStatus));
+    el.deleteBtn.addEventListener("click", () => wrap(deleteSession));
     el.sessionSelect.addEventListener("change", () => setSelectedSession(selectedSessionId()));
 
-    // ── boot ─────────────────────────────────────────────────────
     syncButtons();
-    writerTerm.writeln("\x1b[2mCreate a new session or select one after Refresh Session List, then attach writer.\x1b[0m");
-    readonlyTerm.writeln("\x1b[2mUse Attach Readonly Mirror for the selected session.\x1b[0m");
+    $("writerContainer").textContent = "Create or attach a session to mount dm-ssh-terminal.";
+    $("readonlyContainer").textContent = "Attach readonly token to mount dm-ssh-terminal mirror.";
     log("ready");
     wrap(refreshSessions);
   })();
