@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ja">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,7 +19,12 @@
       --bad: #a33636;
       --sidebar: 320px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       display: flex;
@@ -28,8 +34,8 @@
       font-size: 14px;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(214,103,58,.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(0,106,106,.16), transparent 30%),
+        radial-gradient(circle at top left, rgba(214, 103, 58, .18), transparent 28%),
+        radial-gradient(circle at top right, rgba(0, 106, 106, .16), transparent 30%),
         linear-gradient(180deg, #fbf7f0, var(--bg));
     }
 
@@ -46,6 +52,7 @@
       flex-direction: column;
       gap: 0;
     }
+
     .sidebar-title {
       font-family: "Azeret Mono", "Consolas", monospace;
       font-size: 15px;
@@ -55,12 +62,18 @@
       border-bottom: 1px solid var(--line);
       margin-bottom: 12px;
     }
+
     .section {
       padding-bottom: 12px;
       margin-bottom: 12px;
       border-bottom: 1px solid var(--line);
     }
-    .section:last-child { border-bottom: 0; margin-bottom: 0; }
+
+    .section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0;
+    }
+
     .section-title {
       font-family: "Azeret Mono", "Consolas", monospace;
       font-size: 11px;
@@ -70,6 +83,7 @@
       color: var(--muted);
       margin-bottom: 8px;
     }
+
     label {
       display: block;
       font-size: 11px;
@@ -78,6 +92,7 @@
       color: var(--muted);
       margin-bottom: 8px;
     }
+
     input,
     select {
       display: block;
@@ -86,12 +101,23 @@
       padding: 8px 10px;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: rgba(255,255,255,.82);
+      background: rgba(255, 255, 255, .82);
       color: var(--ink);
       font: inherit;
     }
-    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .buttons { display: flex; flex-direction: column; gap: 8px; }
+
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     button {
       border: 0;
       border-radius: 999px;
@@ -104,11 +130,29 @@
       background: linear-gradient(135deg, var(--accent), #004f52);
       text-align: left;
     }
-    button.secondary { background: linear-gradient(135deg, var(--accent2), #aa4822); }
-    button.ghost { background: linear-gradient(135deg, #8f8d84, #6f6b63); }
-    button:hover { transform: translateY(-1px); }
-    button:active { transform: translateY(0); }
-    button:disabled { opacity: .45; cursor: default; transform: none; }
+
+    button.secondary {
+      background: linear-gradient(135deg, var(--accent2), #aa4822);
+    }
+
+    button.ghost {
+      background: linear-gradient(135deg, #8f8d84, #6f6b63);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: default;
+      transform: none;
+    }
+
     .meta {
       font: 11px/1.5 "Azeret Mono", "Consolas", monospace;
       color: var(--muted);
@@ -116,6 +160,7 @@
       max-height: 160px;
       overflow-y: auto;
     }
+
     .hint {
       font-size: 11px;
       color: var(--muted);
@@ -139,6 +184,7 @@
       flex-direction: column;
       padding: 12px 12px 0;
     }
+
     .term-wrap.mirror {
       flex: 0 0 220px;
       padding-bottom: 12px;
@@ -150,19 +196,29 @@
       gap: 10px;
       margin-bottom: 6px;
     }
+
     .term-head strong {
       font-family: "Azeret Mono", "Consolas", monospace;
       font-size: 12px;
     }
+
     .status {
       font-size: 11px;
       padding: 3px 8px;
       border-radius: 999px;
-      background: rgba(31,42,47,.08);
+      background: rgba(31, 42, 47, .08);
       color: var(--muted);
     }
-    .status.ok { background: rgba(45,122,71,.14); color: var(--ok); }
-    .status.bad { background: rgba(163,54,54,.14); color: var(--bad); }
+
+    .status.ok {
+      background: rgba(45, 122, 71, .14);
+      color: var(--ok);
+    }
+
+    .status.bad {
+      background: rgba(163, 54, 54, .14);
+      color: var(--bad);
+    }
 
     .xterm-container {
       flex: 1;
@@ -184,364 +240,86 @@
   </style>
 
   <script>
-    var state = {
-      sessionId: "",
-      sessions: [],
-      writerSize: null,
-      readonlySize: null,
-    };
+    addEventListener('sessionschange', (e) => console.log('sessions changed', e.target))
 
-    function log(msg, obj) {
-      var metaLog = document.getElementById("metaLog");
-      if (!metaLog) return;
-      var out = obj === undefined ? msg : `${msg}\n${JSON.stringify(obj, null, 2)}`;
-      metaLog.textContent = `${new Date().toLocaleTimeString()} ${out}\n\n${metaLog.textContent}`.trim();
-    }
-
-    function setStatus(target, text, kind) {
-      if (!target) return;
-      target.textContent = text;
-      target.className = `status ${kind || ""}`.trim();
-    }
-
-    function setSessionId(id) {
-      state.sessionId = id || "";
-      document.dispatchEvent(new CustomEvent("sessionchange"));
-    }
-
-    function syncState(el) {
-      function update() { el.disabled = !state.sessionId; }
-      document.addEventListener("sessionchange", update);
-      update();
-    }
-
-    function authHeaders() {
-      var authToken = document.getElementById("authToken");
-      return {
-        "Authorization": `Bearer ${authToken.value.trim()}`,
-        "Content-Type": "application/json",
-      };
-    }
-
-    function authOnlyHeaders() {
-      var authToken = document.getElementById("authToken");
-      return {
-        "Authorization": `Bearer ${authToken.value.trim()}`,
-      };
-    }
-
-    async function api(path, init) {
-      var baseUrl = document.getElementById("baseUrl");
-      var base = baseUrl.value.replace(/\/$/, "");
-      var url = base + path;
-      var method = (init?.method || "GET").toUpperCase();
-      var startedAt = performance.now();
-      log(`HTTP ${method} ${url}`);
-
-      var res = await fetch(url, init);
-      var elapsedMs = Math.round(performance.now() - startedAt);
-      var text = await res.text();
-
-      var json = null;
-      if (text) {
-        try { json = JSON.parse(text); } catch { json = null; }
+    const sessions = new class Sessions extends EventTarget {
+      #value = []
+      get value() { return this.#value }
+      set value(v) {
+        this.#value = v
+        this.dispatchEvent(new Event("change"))
       }
-
-      if (json !== null) {
-        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`, json);
-      } else {
-        log(`HTTP ${method} ${url} -> ${res.status} (${elapsedMs}ms)`);
-      }
-
-      if (!res.ok) {
-        var message = json?.error ?? text ?? res.statusText;
-        throw new Error(`[${res.status}] ${message}`);
-      }
-
-      return json;
     }
-
-    function requireSelectedSession() {
-      if (!state.sessionId) throw new Error("session is not selected");
-      return state.sessionId;
-    }
-
-    async function refreshSessions() {
-      var result = await api("/sessions", { method: "GET", headers: authOnlyHeaders() });
-      state.sessions = Array.isArray(result) ? result : [];
-
-      var sessionSelect = document.getElementById("sessionSelect");
-      if (sessionSelect) {
-        var keep = state.sessionId;
-        sessionSelect.innerHTML = "";
-
-        var empty = document.createElement("option");
-        empty.value = "";
-        empty.textContent = state.sessions.length ? "(select a session)" : "(no sessions)";
-        sessionSelect.appendChild(empty);
-
-        for (var s of state.sessions) {
-          var opt = document.createElement("option");
-          opt.value = s.session_id;
-          opt.textContent = `${s.session_id} | ${s.username}@${s.host}:${s.port} | owner=${s.owner} | clients=${s.client_count}`;
-          sessionSelect.appendChild(opt);
-        }
-
-        if (keep && state.sessions.some(s => s.session_id === keep)) {
-          setSessionId(keep);
-        } else {
-          setSessionId("");
-        }
-      }
-
-      log("sessions refreshed", { count: state.sessions.length });
-    }
-
-    function mountTerminal({ containerEl, host, url, readonly, onResize, onStatus }) {
-      if (!containerEl) return;
-      containerEl.innerHTML = "";
-
-      var term = document.createElement("dm-ssh-terminal");
-      if (host) term.setAttribute("host", host);
-      if (url) term.setAttribute("url", url);
-      if (readonly) term.setAttribute("readonly", "");
-
-      term.addEventListener("dm-ssh-terminal:resize", ev => {
-        onResize?.({ cols: ev.detail?.cols, rows: ev.detail?.rows });
-      });
-
-      term.addEventListener("dm-ssh-terminal:status", ev => {
-        onStatus?.(ev.detail?.status || "idle");
-      });
-
-      containerEl.appendChild(term);
-    }
+    sessions.addEventListener('change', (e) => console.log(e))
   </script>
 </head>
-<body>
-  <aside class="sidebar">
+
+<body style="display: flex;">
+  <aside style="flex: 0 0 320px; overflow: auto;" class="sidebar">
     <div class="sidebar-title">SSH Broker</div>
 
     <div class="section">
       <div class="section-title">Broker</div>
-      <label>REST Base URL
-        <input id="baseUrl" value="">
+      <label>Base URL
+        <input id="baseUrl">
+        <script>
+          const baseUrl = document.currentScript.previousElementSibling
+          baseUrl.value = window.location.origin
+        </script>
       </label>
-      <label>Auth Token
-        <input id="authToken" value="dev-token">
+      <label>Auth Token <input id="authToken" value="dev-token">
+        <script>const authToken = document.currentScript.previousElementSibling;</script>
       </label>
+      <button class="ghost">1. Health Check
+        <script>
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const d = await fetch(baseUrl.value + "/healthz").then(r => r.json())
+            console.log("health", d)
+          })
+        </script>
+      </button>
     </div>
 
     <div class="section">
       <div class="section-title">SSH Target</div>
-      <label>Host <input id="host" value="127.0.0.1"></label>
+      <label>Host <input id="host" value="127.0.0.1">
+        <script>const host = document.currentScript.previousElementSibling;</script>
+      </label>
       <div class="two">
-        <label>Port <input id="port" type="number" value="22"></label>
+        <label>Port <input id="port" type="number" value="22">
+          <script>const port = document.currentScript.previousElementSibling;</script>
+        </label>
         <label>TTL (sec) <input id="ttl" type="number" value="90"></label>
       </div>
-      <label>Username <input id="username" value="demo"></label>
-      <label>Password <input id="password" type="password" value="demo-password"></label>
-    </div>
-
-    <div class="section buttons">
-      <button id="healthBtn" class="ghost">1. Health Check
-        <script>
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            const result = await api("/healthz", { method: "GET" });
-            log("health", result);
-          });
-        </script>
-      </button>
-      <button id="refreshBtn" class="ghost">2. Refresh Session List
-        <script>
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            await refreshSessions();
-          });
-        </script>
-      </button>
+      <label>Username <input id="username" value="demo">
+        <script>const username = document.currentScript.previousElementSibling;</script>
+      </label>
+      <label>Password <input id="password" type="password" value="demo-password">
+        <script>const password = document.currentScript.previousElementSibling;</script>
+      </label>
       <button id="createBtn">3. Create + Attach Writer
         <script>
-          const portInput = document.getElementById("port");
-          const usernameInput = document.getElementById("username");
-          const passwordInput = document.getElementById("password");
-
           document.currentScript.parentElement.addEventListener("click", async () => {
-            const st = state;
-
-            setSessionId("");
-            clearTerminal(writerContainer);
-            clearTerminal(readonlyContainer);
-            setStatus(writerStatus, "creating...", "");
-            setStatus(readonlyStatus, "idle", "");
-
-            const result = await api("/sessions", {
-              method: "POST",
-              headers: authHeaders(),
+            const { writer_ws_url } = await fetch(baseUrl.value + "/sessions", {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${authToken.value.trim()}`,
+                'Content-Type': 'application/json',
+              },
               body: JSON.stringify({
-                host: hostInput.value.trim(),
-                port: Number(portInput.value),
-                username: usernameInput.value.trim(),
-                password: passwordInput.value,
-                pty_cols: st.writerSize?.cols ?? 120,
-                pty_rows: st.writerSize?.rows ?? 40,
+                host: host.value,
+                port: Number(port.value),
+                username: username.value,
+                password: password.value,
+                // pty_cols: 120,
+                // pty_rows: 40,
               }),
-            });
-
-            st.sessionId = result.session_id;
-            log("session created", result);
-            mountTerminal({
-              containerEl: writerContainer,
-              host: hostInput.value.trim(),
-              url: result.writer_ws_url,
-              onResize: size => { st.writerSize = size; },
-              onStatus: status => setStatus(writerStatus, status, ""),
-            });
-            setStatus(writerStatus, "attached", "ok");
-
-            await refreshSessions();
-            setSessionId(result.session_id);
-          });
+            }).then(r => r.json())
+            dispatchEvent(new Event('sessionschange'))
+            writerTerminal.setAttribute("url", writer_ws_url)
+          })
         </script>
       </button>
-      <button id="attachWriterBtn" class="secondary" disabled>4. Attach Writer to Selected
-        <script>
-          syncState(document.currentScript.parentElement);
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            const st = state;
-            const sessionId = requireSelectedSession();
-
-            clearTerminal(writerContainer);
-            const result = await api(`/sessions/${sessionId}/attach-tokens`, {
-              method: "POST",
-              headers: authHeaders(),
-              body: JSON.stringify({ mode: "writer", ttl_seconds: Number(ttlInput.value) }),
-            });
-
-            log("writer token issued", result);
-            mountTerminal({
-              containerEl: writerContainer,
-              host: hostInput.value.trim(),
-              url: result.ws_url,
-              onResize: size => { st.writerSize = size; },
-              onStatus: status => setStatus(writerStatus, status, ""),
-            });
-            setStatus(writerStatus, "attached", "ok");
-
-            await refreshSessions();
-            setSessionId(sessionId);
-          });
-        </script>
-      </button>
-      <button id="readonlyBtn" class="secondary" disabled>5. Attach Readonly Mirror
-        <script>
-          syncState(document.currentScript.parentElement);
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            const st = state;
-            const sessionId = requireSelectedSession();
-
-            clearTerminal(readonlyContainer);
-            const result = await api(`/sessions/${sessionId}/attach-tokens`, {
-              method: "POST",
-              headers: authHeaders(),
-              body: JSON.stringify({ mode: "readonly", ttl_seconds: Number(ttlInput.value) }),
-            });
-
-            log("readonly token issued", result);
-            mountTerminal({
-              containerEl: readonlyContainer,
-              host: hostInput.value.trim(),
-              url: result.ws_url,
-              readonly: true,
-              onResize: size => { st.readonlySize = size; },
-              onStatus: status => setStatus(readonlyStatus, status, ""),
-            });
-            setStatus(readonlyStatus, "attached", "ok");
-
-            await refreshSessions();
-            setSessionId(sessionId);
-          });
-        </script>
-      </button>
-      <button id="resizeBtn" class="secondary" disabled>6. Sync Resize to PTY
-        <script>
-          syncState(document.currentScript.parentElement);
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            const st = state;
-            const sessionId = requireSelectedSession();
-            if (!st.writerSize?.cols || !st.writerSize?.rows) {
-              throw new Error("writer size event is not available yet (to be implemented in dm-ssh-terminal)");
-            }
-
-            const result = await api(`/sessions/${sessionId}/resize`, {
-              method: "POST",
-              headers: authHeaders(),
-              body: JSON.stringify({ cols: st.writerSize.cols, rows: st.writerSize.rows }),
-            });
-            log(`resize -> ${st.writerSize.cols}x${st.writerSize.rows}`, result);
-          });
-        </script>
-      </button>
-      <button id="deleteBtn" class="ghost" disabled>7. Delete Selected Session
-        <script>
-          syncState(document.currentScript.parentElement);
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            const st = state;
-            const sessionId = requireSelectedSession();
-
-            const result = await api(`/sessions/${sessionId}`, {
-              method: "DELETE",
-              headers: authOnlyHeaders(),
-            });
-
-            log("session deleted", result);
-            setSessionId("");
-            st.sessions = [];
-            clearTerminal(writerContainer);
-            clearTerminal(readonlyContainer);
-            setStatus(writerStatus, "idle", "");
-            setStatus(readonlyStatus, "idle", "");
-
-            await refreshSessions();
-          });
-        </script>
-      </button>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Sessions</div>
-      <label>Selected Session
-        <select id="sessionSelect">
-          <option value="">(none)</option>
-        </select>
-        <script>
-          const sessionSelect = document.currentScript.previousElementSibling;
-          sessionSelect.addEventListener("change", () => {
-            setSessionId(sessionSelect.value);
-          });
-          document.addEventListener("sessionchange", () => {
-            sessionSelect.value = state.sessionId;
-          });
-        </script>
-      </label>
-      <button id="detailBtn" class="ghost" disabled>Show Selected Detail
-        <script>
-          syncState(document.currentScript.parentElement);
-          document.currentScript.parentElement.addEventListener("click", async () => {
-            const sessionId = requireSelectedSession();
-            const result = await api(`/sessions/${sessionId}`, {
-              method: "GET",
-              headers: authOnlyHeaders(),
-            });
-            log("session detail", result);
-          });
-        </script>
-      </button>
-      <div class="hint">一覧取得後、ここからセッションを選んで attach/resize/delete を試せます。</div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">State</div>
-      <pre id="metaLog" class="meta"></pre>
     </div>
   </aside>
 
@@ -550,8 +328,32 @@
       <div class="term-head">
         <strong>Writer Terminal</strong>
         <span id="writerStatus" class="status">idle</span>
+        <button>Sync Resize to PTY
+          <script>
+            document.currentScript.parentElement.addEventListener("click", async () => {
+              const sessionId = ''
+              if (!sessionId) return
+              const result = await fetch(baseUrl.value + `/sessions/${sessionId}/resize`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${authToken.value.trim()}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ cols: st.writerSize.cols, rows: st.writerSize.rows }),
+              }).then(r => r.json())
+              console.log(result)
+            });
+          </script>
+        </button>
       </div>
-      <div id="writerContainer" class="xterm-container"></div>
+      <dm-ssh-terminal></dm-ssh-terminal>
+      <script>
+        const writerTerminal = document.currentScript.previousElementSibling
+        writerTerminal.setAttribute('host', host.value)
+        writerTerminal.setAttribute('port', port.value)
+        host.addEventListener('change', () => writerTerminal.setAttribute('host', host.value))
+        port.addEventListener('change', () => writerTerminal.setAttribute('port', port.value))
+      </script>
     </div>
 
     <div class="divider"></div>
@@ -561,23 +363,147 @@
         <strong>Readonly Mirror</strong>
         <span id="readonlyStatus" class="status">idle</span>
       </div>
-      <div id="readonlyContainer" class="xterm-container"></div>
+      <dm-ssh-terminal></dm-ssh-terminal>
+      <script>const readonlyTerminal = document.currentScript.previousElementSibling;</script>
     </div>
   </main>
 
-  <script>
-    const writerContainer = document.getElementById("writerContainer");
-    const readonlyContainer = document.getElementById("readonlyContainer");
-    const writerStatus = document.getElementById("writerStatus");
-    const readonlyStatus = document.getElementById("readonlyStatus");
-    const hostInput = document.getElementById("host");
-    const ttlInput = document.getElementById("ttl");
+  <aside style="flex: 0 0 320px; overflow: auto;" class="sidebar">
+    <section class="section">
+      <h3 class="section-title">Sessions</h3>
+      <button id="refreshBtn" class="ghost">2. Refresh Session List
+        <script>
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const d = await fetch(baseUrl.value + "/sessions", {
+              headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+            }).then(r => r.json())
+            sessions.value = d
+          })
+        </script>
+      </button>
+      <table>
+        <thead>
+          <tr>
+            <th>Target</th>
+            <th>C</th>
+            <th>W</th>
+            <th>R</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template>
+            <tr data-bind>
+              <td data-text="target"></td>
+              <td data-text="clients"></td>
+              <td><input type="checkbox" name="writer" data-attr="checked:writer"></td>
+              <td><input type="checkbox" name="reader" data-attr="checked:reader"></td>
+              <td><input type="radio" name="select"></td>
+            </tr>
+          </template>
+          <script>
+            const tbody = document.currentScript.parentElement
+            tbody.addEventListener('change', async (e) => {
+              // 排他制御
+              /** @type {HTMLInputElement} */
+              const el = e.target
+              if (el.type !== 'checkbox' || !el.checked) return
+              const group = el.name
+              if (group !== 'writer' && group !== 'reader') return
+              for (const cb of tbody.querySelectorAll(`input[name="${group}"]`)) {
+                if (cb !== el) cb.checked = false
+              }
 
-    document.getElementById("baseUrl").value = window.location.origin;
-    writerContainer.textContent = "Create or attach a session to mount dm-ssh-terminal.";
-    readonlyContainer.textContent = "Attach readonly token to mount dm-ssh-terminal mirror.";
-    log("ready");
-    refreshSessions();
-  </script>
+              // ターミナル変更
+              const item = el.closest('tr[data-bind]').value
+              console.log({ group, item })
+              const { ws_url } = await fetch(baseUrl.value + `/sessions/${item.session_id}/attach-tokens`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${authToken.value.trim()}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ mode: group === 'writer' ? "writer" : "readonly" }),
+              }).then(r => r.json())
+              const terminal = group === 'writer' ? writerTerminal : readonlyTerminal
+              terminal.setAttribute("url", ws_url)
+            })
+
+            const template = document.currentScript.previousElementSibling
+            sessions.addEventListener("change", () => {
+              tbody.replaceChildren()
+              for (const s of sessions.value) {
+                const item = {
+                  ...s,
+                  target: `${s.username}@${s.host}:${s.port}`,
+                  clients: String(s.client_count),
+                  writer: s.has_writer ? "✓" : "",
+                  reader: s.has_readonly ? "✓" : "",
+                }
+                const fragment = template.content.cloneNode(true)
+                for (const el of fragment.querySelectorAll('[data-text]')) {
+                  const key = el.getAttribute('data-text')
+                  if (item[key]) el.textContent = item[key]
+                }
+                for (const el of fragment.querySelectorAll('[data-bind]')) {
+                  el.value = item
+                }
+                for (const el of fragment.querySelectorAll('[data-attr]')) {
+                  const attr = el.getAttribute('data-attr')
+                  const [prop, key] = attr.split(':')
+                  if (item[key]) el[prop] = item[key]
+                }
+                tbody.appendChild(fragment)
+              }
+            })
+          </script>
+        </tbody>
+      </table>
+      <section>
+        <h3 class="section-title">detail</h3>
+        <div>
+          <script>
+            const id = document.currentScript.parentElement
+            tbody.addEventListener('change', async (e) => {
+              const el = e.target
+              if (el.type !== 'radio' || el.name !== 'select') return
+              const item = el.closest('tr[data-bind]').value
+              id.value = item
+              id.textContent = item.session_id
+            })
+          </script>
+        </div>
+        <button id="detailBtn" class="ghost">Show Detail
+          <script>
+            document.currentScript.parentElement.addEventListener("click", async () => {
+              const session_id = id.value.session_id
+              if (!session_id) return
+              const d = await fetch(baseUrl.value + `/sessions/${session_id}`, {
+                headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+              }).then(r => r.json())
+              detail.textContent = JSON.stringify(d, null, 2)
+            })
+          </script>
+        </button>
+        <button name="del">Delete
+          <script>
+            document.currentScript.parentElement.addEventListener('click', async (e) => {
+              const session_id = id.value.session_id
+              if (!session_id) return
+              if (!confirm(`Delete session ${session_id}?`)) return
+              await fetch(baseUrl.value + `/sessions/${session_id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+              })
+              dispatchEvent(new Event('sessionschange'))
+            })
+          </script>
+        </button>
+        <pre class="meta"></pre>
+        <script>const detail = document.currentScript.previousElementSibling;</script>
+      </section>
+    </section>
+  </aside>
 </body>
+
 </html>

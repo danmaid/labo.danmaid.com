@@ -50,7 +50,7 @@ class DmSshTerminal extends HTMLElement {
     const { writer_ws_url } =
       await client.createSession({
         host: this.getAttribute("host"),
-        port: this.getAttribute("port"),
+        port: parseInt(this.getAttribute("port")),
         username,
         password,
         pty: this.view.getSize(),
