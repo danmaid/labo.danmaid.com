@@ -15,8 +15,6 @@
       --muted: #6a6e67;
       --accent: #006a6a;
       --accent2: #d6673a;
-      --ok: #2d7a47;
-      --bad: #a33636;
       --sidebar: 320px;
     }
 
@@ -112,12 +110,6 @@
       gap: 8px;
     }
 
-    .buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
     button {
       border: 0;
       border-radius: 999px;
@@ -129,10 +121,6 @@
       transition: transform 100ms ease, opacity 100ms ease;
       background: linear-gradient(135deg, var(--accent), #004f52);
       text-align: left;
-    }
-
-    button.secondary {
-      background: linear-gradient(135deg, var(--accent2), #aa4822);
     }
 
     button.ghost {
@@ -159,13 +147,6 @@
       word-break: break-all;
       max-height: 160px;
       overflow-y: auto;
-    }
-
-    .hint {
-      font-size: 11px;
-      color: var(--muted);
-      line-height: 1.4;
-      margin-top: 6px;
     }
 
     .workspace {
@@ -208,27 +189,6 @@
       border-radius: 999px;
       background: rgba(31, 42, 47, .08);
       color: var(--muted);
-    }
-
-    .status.ok {
-      background: rgba(45, 122, 71, .14);
-      color: var(--ok);
-    }
-
-    .status.bad {
-      background: rgba(163, 54, 54, .14);
-      color: var(--bad);
-    }
-
-    .xterm-container {
-      flex: 1;
-      min-height: 0;
-      border-radius: 14px;
-      overflow: hidden;
-      background: #171917;
-      padding: 6px;
-      color: #b7c7b3;
-      font: 12px/1.4 "Azeret Mono", "Consolas", monospace;
     }
 
     .divider {
