@@ -18,59 +18,80 @@ await defaultCss.insertRule(`
       }`)
 
 class DmSshTerminal extends HTMLElement {
-  static get observedAttributes() { return ["url"] }
+  /** @type {TerminalView} */
+  view
+  /** @type {WebSocket | null} */
+  ws = null
 
   constructor() {
     super()
     this.attachShadow({ mode: "open" })
     this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, xtermCss, defaultCss]
-  }
-
-  connectedCallback() {
     this.view = new TerminalView(this.shadowRoot)
-
-    if (this.hasAttribute("url")) {
-      this.attach(this.getAttribute("url"))
-    } else {
-      this.login = new LoginController(this.view, creds =>
-        this.createSession(creds)
-      )
-      this.login.start()
-    }
+    if (!this.hasAttribute('broker')) this.setAttribute('broker', 'http://localhost:8080')
   }
 
+  static get observedAttributes() { return ["socket", "session", "role", "host", "broker"] }
   attributeChangedCallback(name, oldVal, newVal) {
-    if (name === "url" && newVal && newVal !== oldVal) {
-      this.attach(newVal)
-    }
+    console.log("attr changed", { name, oldVal, newVal })
+    if (newVal === oldVal || !newVal) return
+    if (name === 'socket') return this.connect()
+    if (name === 'session') return this.attach()
+    // 以下はおまけ機能
+    if (name === 'host') return new LoginController({
+      view: this.view,
+      broker: this.getAttribute('broker'),
+      host: this.getAttribute('host'),
+      port: this.getAttribute('port')
+    }, ({ session_id }) => {
+      this.view.write('success.\r\n')
+      this.setAttribute('mode', 'writer')
+      this.setAttribute("session", session_id)
+    })
   }
 
-  async createSession({ username, password }) {
-    const client = new SessionClient()
-    const { writer_ws_url } =
-      await client.createSession({
-        host: this.getAttribute("host"),
-        port: parseInt(this.getAttribute("port")),
-        username,
-        password,
-        pty: this.view.getSize(),
-      })
-
-    this.setAttribute("url", writer_ws_url) // ← 状態遷移の要
+  connect() {
+    const socket = this.getAttribute('socket')
+    this.ws?.close()
+    this.ws = new WebSocket(socket)
+    this.ws.binaryType = "arraybuffer"
+    this.ws.onmessage = e => this.view.write(
+      e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data
+    )
+    this.view.onInput(data => this.ws.send(data))
   }
 
-  attach(url) {
-    this.attachConn?.close()
-    this.attachConn = new AttachConnection(url, {
-      onData: data => this.view.write(data),
+  async attach() {
+    const broker = this.getAttribute('broker')
+    const session = this.getAttribute('session')
+    const mode = this.getAttribute('mode')
+    const res = await fetch(`${broker}/sessions/${session}/attach-tokens`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer dev-token", // MVP
+      },
+      body: JSON.stringify({ mode }),
     })
 
-    this.view.onInput(data => this.attachConn.send(data))
-    this.attachConn.open()
+    if (!res.ok) {
+      const err = await res.json()
+      throw { status: res.status, error: err.error }
+    }
+
+    const { ws_url } = await res.json()
+    this.setAttribute("socket", ws_url)
   }
 }
 
 class TerminalView {
+  /** @type {Terminal} */
+  term
+  /** @type {FitAddon} */
+  fit
+  get cols() { return this.term.cols }
+  get rows() { return this.term.rows }
+
   constructor(root) {
     const container = document.createElement("div")
     container.className = "container"
@@ -97,27 +118,61 @@ class TerminalView {
     this._inputDisposable?.dispose()
     this._inputDisposable = this.term.onData(cb)
   }
-
-  getSize() {
-    return { cols: this.term.cols, rows: this.term.rows }
-  }
 }
 
-class SessionClient {
-  async createSession(req) {
-    const res = await fetch("http://localhost:8080/sessions", {
+class LoginController {
+  state = "username"
+  /** @type {{ username?: string, password?: string }} */
+  buf = {}
+
+  constructor({ view, broker, host, port }, onSubmit) {
+    this.view = view
+    this.broker = broker
+    this.onSubmit = onSubmit
+    this.host = host
+    this.port = port
+    this.view.write("Username: ")
+    this.view.onInput(d => this.onInput(d))
+  }
+
+  async onInput(data) {
+    if (data === "\r") {
+      if (this.state === "username") {
+        this.state = "password"
+        this.view.write("\r\nPassword: ")
+      } else {
+        try {
+          this.view.write("\r\nLogging in...\r\n")
+          const result = await this.createSession(this.buf)
+          this.onSubmit(result)
+        } catch (e) {
+          console.error('Login failed', e)
+          this.view.write(`\r\nLogin failed (${e.status}) ${e.error}\r\nUsername: `)
+          this.state = "username"
+          this.buf = {}
+        }
+      }
+      return
+    }
+    this.buf[this.state] = (this.buf[this.state] ?? "") + data
+    if (this.state === "username") this.view.write(data)
+  }
+
+  async createSession({ username, password }) {
+    const broker = this.broker
+    const res = await fetch(`${broker}/sessions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer dev-token", // MVP
       },
       body: JSON.stringify({
-        host: req.host,
-        port: req.port ?? 22,
-        username: req.username,
-        password: req.password,
-        pty_cols: req.pty?.cols,
-        pty_rows: req.pty?.rows,
+        host: this.host,
+        port: parseInt(this.port) || undefined,
+        username,
+        password,
+        pty_cols: this.view.cols,
+        pty_rows: this.view.rows,
       }),
     })
 
@@ -127,65 +182,6 @@ class SessionClient {
     }
 
     return res.json()
-  }
-}
-
-class AttachConnection {
-  constructor(url, { onData }) {
-    this.url = url
-    this.onData = onData
-  }
-
-  open() {
-    this.ws = new WebSocket(this.url)
-    this.ws.binaryType = "arraybuffer"
-    this.ws.onmessage = e => this.onData(
-      e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data
-    )
-  }
-
-  send(data) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(data)
-    }
-  }
-
-  close() {
-    this.ws?.close()
-  }
-}
-
-class LoginController {
-  constructor(view, onSubmit) {
-    this.view = view
-    this.onSubmit = onSubmit
-    this.state = "username"
-    this.buf = {}
-  }
-
-  start() {
-    this.view.write("Username: ")
-    this.view.onInput(d => this.handle(d))
-  }
-
-  async handle(data) {
-    if (data === "\r") {
-      if (this.state === "username") {
-        this.state = "password"
-        this.view.write("\r\nPassword: ")
-      } else {
-        try {
-          await this.onSubmit(this.buf)
-        } catch (e) {
-          this.view.write(`\r\nLogin failed (${e.status})\r\nUsername: `)
-          this.state = "username"
-          this.buf = {}
-        }
-      }
-      return
-    }
-    this.buf[this.state] = (this.buf[this.state] ?? "") + data
-    if (this.state === "username") this.view.write(data)
   }
 }
 
