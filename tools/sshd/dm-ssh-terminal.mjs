@@ -45,7 +45,7 @@ class DmSshTerminal extends HTMLElement {
       port: this.getAttribute('port')
     }, ({ session_id }) => {
       this.view.write('success.\r\n')
-      this.setAttribute('mode', 'writer')
+      this.setAttribute('role', 'writer')
       this.setAttribute("session", session_id)
     })
   }
@@ -64,7 +64,7 @@ class DmSshTerminal extends HTMLElement {
   async attach() {
     const broker = this.getAttribute('broker')
     const session = this.getAttribute('session')
-    const mode = this.getAttribute('mode')
+    const mode = this.getAttribute('role')
     const res = await fetch(`${broker}/sessions/${session}/attach-tokens`, {
       method: "POST",
       headers: {
