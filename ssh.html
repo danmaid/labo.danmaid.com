@@ -4,20 +4,11 @@
 <head>
   <link rel="stylesheet" href="css/full-screen.css">
   <script type="module" src="http://localhost:8080/dm-ssh-terminal.mjs"></script>
+  <script type="module" src="js/auto-data-bind-attr-url.js"></script>
 </head>
 
 <body class="full-screen" style="padding: 8px; overflow: hidden;">
-  <dm-ssh-terminal>
-    <script>
-      const terminal = document.currentScript.parentElement
-      const params = new URLSearchParams(location.search)
-      for (const k of ['socket', 'session', 'role', 'host', 'broker']) {
-        for (const v of params.getAll(k)) {
-          v === '' ? terminal.toggleAttribute(k, true) : terminal.setAttribute(k, v)
-        }
-      }
-    </script>
-  </dm-ssh-terminal>
+  <dm-ssh-terminal data-bind-attr-url="session, role, host, broker"></dm-ssh-terminal>
 </body>
 
 </html>
