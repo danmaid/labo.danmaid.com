@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="css/full-screen.css">
+  <script type="module" src="http://localhost:8080/dm-ssh-terminal.mjs"></script>
+  <script type="module" src="js/auto-data-bind-attr-url.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    [role="writer"] {
+      box-sizing: border-box;
+      border: 4px solid red;
+    }
+  </style>
+  <script>
+    const id = crypto.randomUUID()
+    const channel = new BroadcastChannel('terminals')
+    channel.addEventListener('message', (e) => {
+      console.log('Received message:', e.data)
+      if (e.data.type === 'ping') {
+        console.log('Received ping, sending pong')
+        pong()
+        return
+      }
+      if (e.data.type === 'close' && (e.data.to === id || e.data.to == null)) {
+        console.log('Received close command, closing window')
+        window.close()
+        return
+      }
+      if (e.data.type === 'focus' && e.data.to === id) {
+        console.log('Received focus command, focusing window')
+        new Notification('Focus Command')
+        window.focus()
+        console.log('dame?', document.hasFocus())
+        return
+      }
+      if (e.data.type === 'moveTo' && e.data.to === id) {
+        console.log('Received moveTo command, moving window')
+        window.moveTo(e.data.x, e.data.y)
+        return
+      }
+    })
+
+    function pong() {
+      channel.postMessage({
+        type: 'pong', from: id, url: window.location.href, window: {
+          screenX: window.screenX,
+          screenY: window.screenY,
+          innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
+          outerWidth: window.outerWidth,
+          outerHeight: window.outerHeight,
+        }
+      })
+    }
+
+    window.addEventListener('beforeunload', () => {
+      channel.postMessage({ type: 'close', from: id, to: id })
+    })
+  </script>
+</head>
+
+<body class="full-screen">
+  <dm-ssh-terminal data-bind-attr-url="session, role, host, broker">
+    <script>
+      new MutationObserver((mutations) => {
+        runOnce(pong, 100)
+      }).observe(document.currentScript.parentElement, { attributes: true })
+
+
+      function runOnce(fn, delay = 0) {
+        runOnce.timers ??= new WeakMap()
+        const timers = runOnce.timers
+        clearTimeout(timers.get(fn))
+        timers.set(fn, setTimeout(fn, delay))
+      }
+    </script>
+  </dm-ssh-terminal>
+</body>
+
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSH Broker</title>
+  <!-- <script type="module" src="./dm-ssh-terminal.mjs"></script> -->
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+  </style>
+  <script>
+    const id = crypto.randomUUID()
+    const channel = new BroadcastChannel('terminals')
+    channel.addEventListener('message', (e) => {
+      console.log('Received message:', e.data)
+      if (e.data.type === 'ping') {
+        console.log('Received ping, sending pong')
+        channel.postMessage({ type: 'pong', from: id })
+      } else if (e.data.type === 'pong') {
+        console.log('Received pong', e.data)
+      }
+    })
+  </script>
+</head>
+
+<body style="display: flex;">
+  <main>
+    <table>
+      <thead>
+        <tr>
+          <th>Window</th>
+          <th>Session</th>
+          <th>Host</th>
+          <th>Role</th>
+          <th>Broker</th>
+          <th>
+            <button id="refreshBtn" class="ghost">Refresh
+              <script>
+                document.currentScript.parentElement.addEventListener("click", async () => {
+                  tbody.replaceChildren()
+                  channel.postMessage({ type: 'ping', from: id })
+                })
+                document.addEventListener('DOMContentLoaded', () => {
+                  document.getElementById('refreshBtn').click()
+                })
+              </script>
+            </button>
+            <button>Close All
+              <script>
+                document.currentScript.parentElement.addEventListener('click', () => {
+                  channel.postMessage({ type: 'close', from: id })
+                })
+              </script>
+            </button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <template>
+          <tr data-bind>
+            <td data-text="hrid" data-attr="title:id"></td>
+            <td data-text="session"></td>
+            <td data-text="host"></td>
+            <td data-text="role"></td>
+            <td data-text="broker"></td>
+            <td>
+              <button name="close">close</button>
+              <button name="focus">focus</button>
+              <button name="moveTo">moveTo</button>
+            </td>
+          </tr>
+        </template>
+        <script>
+          const tbody = document.currentScript.parentElement
+          tbody.addEventListener('click', (e) => {
+            if (e.target.name === 'close') {
+              const item = e.target.closest('tr[data-bind]').value
+              channel.postMessage({ type: 'close', to: item.id, from: id })
+              return
+            }
+            if (e.target.name === 'focus') {
+              const item = e.target.closest('tr[data-bind]').value
+              channel.postMessage({ type: 'focus', to: item.id, from: id })
+              return
+            }
+            if (e.target.name === 'moveTo') {
+              const item = e.target.closest('tr[data-bind]').value
+              channel.postMessage({ type: 'moveTo', to: item.id, from: id, x: 100, y: 100 })
+              return
+            }
+          })
+
+          const template = document.currentScript.previousElementSibling
+          channel.addEventListener('message', (ev) => {
+            if (ev.data.type !== 'pong') return
+            const params = new URL(ev.data.url).searchParams
+            const item = {
+              ...ev.data,
+              id: ev.data.from,
+              hrid: ev.data.from.slice(0, 8),
+              session: params.get('session'),
+              role: params.get('role'),
+              host: params.get('host'),
+              broker: params.get('broker'),
+            }
+            const fragment = template.content.cloneNode(true)
+            for (const el of fragment.querySelectorAll('[data-text]')) {
+              const key = el.getAttribute('data-text')
+              if (item[key]) el.textContent = item[key]
+            }
+            for (const el of fragment.querySelectorAll('[data-bind]')) {
+              el.value = item
+            }
+            for (const el of fragment.querySelectorAll('[data-attr]')) {
+              const attr = el.getAttribute('data-attr')
+              const [prop, key] = attr.split(':')
+              if (item[key]) el[prop] = item[key]
+            }
+            tbody.appendChild(fragment)
+          })
+
+          channel.addEventListener('message', (ev) => {
+            if (ev.data.type !== 'close') return
+            const { from } = ev.data
+            if (from !== ev.data.to) return
+            for (const tr of tbody.querySelectorAll('tr[data-bind]')) {
+              if (tr.value.id === from) tr.remove()
+            }
+          })
+        </script>
+      </tbody>
+    </table>
+  </main>
+</body>
+
+</html>

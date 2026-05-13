@@ -1,14 +1,436 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="ja">
 
 <head>
-  <link rel="stylesheet" href="css/full-screen.css">
-  <script type="module" src="http://localhost:8080/dm-ssh-terminal.mjs"></script>
-  <script type="module" src="js/auto-data-bind-attr-url.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSH Broker</title>
+  <script type="module" src="./dm-ssh-terminal.mjs"></script>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: rgba(255, 251, 245, 0.92);
+      --line: #d6c9b2;
+      --ink: #1f2a2f;
+      --muted: #6a6e67;
+      --accent: #006a6a;
+      --accent2: #d6673a;
+      --sidebar: 320px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      display: flex;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: "IBM Plex Sans JP", "Hiragino Sans", sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(214, 103, 58, .18), transparent 28%),
+        radial-gradient(circle at top right, rgba(0, 106, 106, .16), transparent 30%),
+        linear-gradient(180deg, #fbf7f0, var(--bg));
+    }
+
+    .sidebar {
+      width: var(--sidebar);
+      min-width: var(--sidebar);
+      height: 100%;
+      overflow-y: auto;
+      padding: 14px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .sidebar-title {
+      font-family: "Azeret Mono", "Consolas", monospace;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 12px;
+    }
+
+    .section {
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-family: "Azeret Mono", "Consolas", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    input,
+    select {
+      display: block;
+      width: 100%;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .82);
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 100ms ease, opacity 100ms ease;
+      background: linear-gradient(135deg, var(--accent), #004f52);
+      text-align: left;
+    }
+
+    button.ghost {
+      background: linear-gradient(135deg, #8f8d84, #6f6b63);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: default;
+      transform: none;
+    }
+
+    .meta {
+      font: 11px/1.5 "Azeret Mono", "Consolas", monospace;
+      color: var(--muted);
+      word-break: break-all;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .term-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 12px 0;
+    }
+
+    .term-wrap.mirror {
+      flex: 0 0 220px;
+      padding-bottom: 12px;
+    }
+
+    .term-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .term-head strong {
+      font-family: "Azeret Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    .status {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(31, 42, 47, .08);
+      color: var(--muted);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 0 12px;
+      flex-shrink: 0;
+    }
+  </style>
+
+  <script>
+    addEventListener('sessionschange', (e) => console.log('sessions changed', e.target))
+
+    const sessions = new class Sessions extends EventTarget {
+      #value = []
+      get value() { return this.#value }
+      set value(v) {
+        this.#value = v
+        this.dispatchEvent(new Event("change"))
+      }
+    }
+    sessions.addEventListener('change', (e) => console.log(e))
+  </script>
 </head>
 
-<body class="full-screen" style="padding: 8px; overflow: hidden;">
-  <dm-ssh-terminal data-bind-attr-url="session, role, host, broker"></dm-ssh-terminal>
+<body style="display: flex;">
+  <aside style="flex: 0 0 320px; overflow: auto;" class="sidebar">
+    <div class="sidebar-title">SSH Broker</div>
+
+    <div class="section">
+      <div class="section-title">Broker</div>
+      <label>Base URL
+        <input id="baseUrl">
+        <script>
+          const baseUrl = document.currentScript.previousElementSibling
+          baseUrl.value = window.location.origin
+        </script>
+      </label>
+      <label>Auth Token <input id="authToken" value="dev-token">
+        <script>const authToken = document.currentScript.previousElementSibling;</script>
+      </label>
+      <button class="ghost">1. Health Check
+        <script>
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const d = await fetch(baseUrl.value + "/healthz").then(r => r.json())
+            console.log("health", d)
+          })
+        </script>
+      </button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SSH Target</div>
+      <label>Host <input id="host" value="127.0.0.1">
+        <script>const host = document.currentScript.previousElementSibling;</script>
+      </label>
+      <div class="two">
+        <label>Port <input id="port" type="number" value="22">
+          <script>const port = document.currentScript.previousElementSibling;</script>
+        </label>
+        <label>TTL (sec) <input id="ttl" type="number" value="90"></label>
+      </div>
+      <label>Username <input id="username" value="demo">
+        <script>const username = document.currentScript.previousElementSibling;</script>
+      </label>
+      <label>Password <input id="password" type="password" value="demo-password">
+        <script>const password = document.currentScript.previousElementSibling;</script>
+      </label>
+      <button id="createBtn">3. Create + Attach Writer
+        <script>
+          document.currentScript.parentElement.addEventListener("click", async () => {
+            const { writer_ws_url } = await fetch(baseUrl.value + "/sessions", {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${authToken.value.trim()}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                host: host.value,
+                port: Number(port.value),
+                username: username.value,
+                password: password.value,
+                // pty_cols: 120,
+                // pty_rows: 40,
+              }),
+            }).then(r => r.json())
+            dispatchEvent(new Event('sessionschange'))
+            writerTerminal.setAttribute("url", writer_ws_url)
+          })
+        </script>
+      </button>
+    </div>
+  </aside>
+  <main>
+    <table>
+      <thead>
+        <tr>
+          <th>Target</th>
+          <th>C</th>
+          <th>W</th>
+          <th>R</th>
+          <th>
+            <button id="refreshBtn" class="ghost">2. Refresh Session List
+              <script>
+                document.currentScript.parentElement.addEventListener("click", async () => {
+                  const d = await fetch(baseUrl.value + "/sessions", {
+                    headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+                  }).then(r => r.json())
+                  sessions.value = d
+                })
+              </script>
+            </button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <template>
+          <tr data-bind>
+            <td data-text="target"></td>
+            <td data-text="clients"></td>
+            <td><input type="checkbox" name="writer" data-attr="checked:writer"></td>
+            <td><input type="checkbox" name="reader" data-attr="checked:reader"></td>
+            <td><input type="radio" name="select"></td>
+            <td><button name="open">Open</button></td>
+            <td><button name="writer">Writer</button></td>
+          </tr>
+        </template>
+        <script>
+          const tbody = document.currentScript.parentElement
+          tbody.addEventListener('change', async (e) => {
+            // 排他制御
+            /** @type {HTMLInputElement} */
+            const el = e.target
+            if (el.type !== 'checkbox' || !el.checked) return
+            const group = el.name
+            if (group !== 'writer' && group !== 'reader') return
+            for (const cb of tbody.querySelectorAll(`input[name="${group}"]`)) {
+              if (cb !== el) cb.checked = false
+            }
+
+            // ターミナル変更
+            const item = el.closest('tr[data-bind]').value
+            console.log({ group, item })
+            const { ws_url } = await fetch(baseUrl.value + `/sessions/${item.session_id}/attach-tokens`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${authToken.value.trim()}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ mode: group === 'writer' ? "writer" : "readonly" }),
+            }).then(r => r.json())
+            const terminal = group === 'writer' ? writerTerminal : readonlyTerminal
+            terminal.setAttribute("url", ws_url)
+          })
+
+          tbody.addEventListener('click', (e) => {
+            const btn = e.target
+            if (btn.name !== 'open' && btn.name !== 'writer') return
+            const item = btn.closest('tr[data-bind]').value
+            const url = `ssh-terminal.html?session=${item.session_id}` + (btn.name === 'writer' ? '&role=writer' : '')
+            window.open(url, '_blank', 'popup,width=800,height=600')
+          })
+
+          const template = document.currentScript.previousElementSibling
+          sessions.addEventListener("change", () => {
+            tbody.replaceChildren()
+            for (const s of sessions.value) {
+              const item = {
+                ...s,
+                target: `${s.username}@${s.host}:${s.port}`,
+                clients: String(s.client_count),
+                writer: s.has_writer ? "✓" : "",
+                reader: s.has_readonly ? "✓" : "",
+              }
+              const fragment = template.content.cloneNode(true)
+              for (const el of fragment.querySelectorAll('[data-text]')) {
+                const key = el.getAttribute('data-text')
+                if (item[key]) el.textContent = item[key]
+              }
+              for (const el of fragment.querySelectorAll('[data-bind]')) {
+                el.value = item
+              }
+              for (const el of fragment.querySelectorAll('[data-attr]')) {
+                const attr = el.getAttribute('data-attr')
+                const [prop, key] = attr.split(':')
+                if (item[key]) el[prop] = item[key]
+              }
+              tbody.appendChild(fragment)
+            }
+          })
+        </script>
+      </tbody>
+    </table>
+  </main>
+  <aside style="flex: 0 0 320px; overflow: auto;" class="sidebar">
+    <section class="section">
+      <h3 class="section-title">Sessions</h3>
+      <section>
+        <h3 class="section-title">detail</h3>
+        <div>
+          <script>
+            const id = document.currentScript.parentElement
+            tbody.addEventListener('change', async (e) => {
+              const el = e.target
+              if (el.type !== 'radio' || el.name !== 'select') return
+              const item = el.closest('tr[data-bind]').value
+              id.value = item
+              id.textContent = item.session_id
+            })
+          </script>
+        </div>
+        <button id="detailBtn" class="ghost">Show Detail
+          <script>
+            document.currentScript.parentElement.addEventListener("click", async () => {
+              const session_id = id.value.session_id
+              if (!session_id) return
+              const d = await fetch(baseUrl.value + `/sessions/${session_id}`, {
+                headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+              }).then(r => r.json())
+              detail.textContent = JSON.stringify(d, null, 2)
+            })
+          </script>
+        </button>
+        <button name="del">Delete
+          <script>
+            document.currentScript.parentElement.addEventListener('click', async (e) => {
+              const session_id = id.value.session_id
+              if (!session_id) return
+              if (!confirm(`Delete session ${session_id}?`)) return
+              await fetch(baseUrl.value + `/sessions/${session_id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+              })
+              dispatchEvent(new Event('sessionschange'))
+            })
+          </script>
+        </button>
+        <pre class="meta"></pre>
+        <script>const detail = document.currentScript.previousElementSibling;</script>
+      </section>
+    </section>
+  </aside>
 </body>
 
 </html>
