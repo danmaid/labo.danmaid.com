@@ -18,6 +18,8 @@
       --footer-height: 32px;
     }
   </style>
+  <script type="module" src="js/dm-window.mjs"></script>
+  <script type="module" src="tools/sshd/dm-ssh-terminal.mjs"></script>
   <script>
     /**
      * @typedef {Object} Item
@@ -39,150 +41,6 @@
       a.textContent = item.title
       return a
     }
-  </script>
-  <script>
-    class DMWindow extends HTMLElement {
-      static z = 1;
-
-      constructor() {
-        super()
-
-        const shadow = this.attachShadow({ mode: 'open' })
-
-        shadow.innerHTML = `
-      <style>
-        :host {
-          display: flex;
-          flex-direction: column;
-          width: 320px;
-          height: 240px;
-          background: #22222222;
-          border: 1px solid #666;
-          box-shadow: 4px 4px 12px rgba(0,0,0,0.3);
-          resize: both;
-          overflow: hidden;
-          pointer-events: initial;
-        }
-
-        .header {
-          background: #44444488;
-          color: white;
-          padding: 6px 8px;
-          cursor: move;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          user-select: none;
-        }
-
-        .title {
-          font-size: 14px;
-        }
-
-        .controls button {
-          margin-left: 6px;
-          background: transparent;
-          border: none;
-          color: white;
-          cursor: pointer;
-        }
-
-        .content {
-          flex: 1;
-          overflow: auto;
-          padding: 6px;
-        }
-      </style>
-
-      <div class="header">
-        <slot name="title" class="title">Window</slot>
-        <div class="controls">
-          <button class="close">×</button>
-        </div>
-      </div>
-
-      <div class="content">
-        <slot></slot>
-      </div>
-    `
-      }
-
-      static get observedAttributes() {
-        return ['title']
-      }
-
-      attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'title') {
-          this.shadowRoot.querySelector('.title').textContent = newValue
-        }
-      }
-
-      connectedCallback() {
-        const shadow = this.shadowRoot
-        const header = shadow.querySelector('.header')
-
-        // 閉じる
-        shadow.querySelector('.close').onclick = () => {
-          console.log('close')
-          this.remove()
-        }
-
-        // 初期位置
-        if (this.hasAttribute('x')) {
-          this.style.left = this.getAttribute('x') + 'px'
-        }
-        if (this.hasAttribute('y')) {
-          this.style.top = this.getAttribute('y') + 'px'
-        }
-
-        // 前面化
-        this.addEventListener('pointerdown', () => {
-          this.style.zIndex = ++DMWindow.z
-        })
-
-        // ---- ドラッグ（Pointer Events版） ----
-        let dragging = false
-        let offsetX = 0
-        let offsetY = 0
-
-        header.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return
-
-          dragging = true
-
-          offsetX = e.clientX - this.offsetLeft
-          offsetY = e.clientY - this.offsetTop
-
-          this.setPointerCapture(e.pointerId)
-        })
-
-        this.addEventListener('pointermove', (e) => {
-          if (!dragging) return
-
-          this.style.left = (e.clientX - offsetX) + 'px'
-          this.style.top = (e.clientY - offsetY) + 'px'
-        })
-
-        this.addEventListener('pointerup', () => {
-          dragging = false
-        })
-
-        this.addEventListener('pointercancel', () => {
-          dragging = false
-        })
-      }
-
-      // API
-      setTitle(title) {
-        this.shadowRoot.querySelector('.title').textContent = title
-      }
-
-      close() {
-        this.remove()
-      }
-    }
-
-    customElements.define('dm-window', DMWindow)
   </script>
 </head>
 
@@ -229,7 +87,43 @@
     </button>
   </aside>
   <footer class="left-center-right">
-    <div>left</div>
+    <div style="display: flex;">left
+      <div style="display: flex;">
+        <div>テスト</div>
+        <div>テスト</div>
+        <div id="overlay" class="overlay" style="z-index: 9;">
+          <dm-window title="テスト">
+            <h2>Hello</h2>
+            <button>クリック</button>
+          </dm-window>
+          <template>
+            <dm-window>
+              <dm-ssh-terminal></dm-ssh-terminal>
+            </dm-window>
+          </template>
+          <script>
+            const overlay = document.currentScript.parentElement
+            const template = overlay.querySelector('template')
+
+            function createWindow({ title = "Window", content } = {}) {
+              const fragment = template.content.firstElementChild.cloneNode(true)
+              overlay.appendChild(fragment)
+              return fragment
+            }
+          </script>
+          <style>
+            .overlay {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+            }
+          </style>
+        </div>
+      </div>
+    </div>
     <nav class="center" data-render data-role="ref">
       <script>
         for (const ref of data.filter(item => item.role === 'ref')) {
@@ -239,140 +133,6 @@
     </nav>
     <div>&copy; 2026 danmaid</div>
   </footer>
-
-  <div id="overlay" class="overlay">
-    <dm-window title="テスト">
-      <h2>Hello</h2>
-      <button>クリック</button>
-    </dm-window>
-    <template>
-      <div class="window">
-        <div class="window-header">
-          <span class="title">Untitled</span>
-          <div class="controls">
-            <button class="min">_</button>
-            <button class="max">□</button>
-            <button class="close">×</button>
-          </div>
-        </div>
-
-        <div class="window-content"></div>
-      </div>
-    </template>
-    <style>
-      .window {
-        pointer-events: initial;
-        position: absolute;
-        width: 400px;
-        height: 300px;
-        top: 100px;
-        left: 100px;
-
-        display: flex;
-        flex-direction: column;
-
-        background: #22222222;
-        border: 1px solid #666;
-        border-radius: 8px;
-        box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.3);
-
-        resize: both;
-        overflow: hidden;
-      }
-
-      .window-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-
-        background: #444;
-        color: white;
-        padding: 4px 8px;
-        cursor: move;
-        user-select: none;
-      }
-
-      .window-content {
-        flex: 1;
-        overflow: auto;
-      }
-
-      .controls button {
-        margin-left: 4px;
-        background: transparent;
-        border: none;
-        color: white;
-        cursor: pointer;
-      }
-    </style>
-    <script>
-      const overlay = document.currentScript.parentElement
-      const template = overlay.querySelector('template')
-
-      function createWindow({ title = "Window", content } = {}) {
-        console.log('Creating window with title:', title)
-        const fragment = template.content.firstElementChild.cloneNode(true)
-
-        // タイトル設定
-        fragment.querySelector('.title').textContent = title
-
-        // 中身を挿入
-        const contentArea = fragment.querySelector('.window-content')
-        if (content) contentArea.appendChild(content)
-
-        // 閉じる
-        fragment.querySelector('.close').onclick = () => fragment.remove()
-
-        // 前面に出す
-        fragment.addEventListener('mousedown', () => {
-          fragment.style.zIndex = Date.now()
-        })
-
-        // ドラッグ
-        makeDraggable(fragment)
-
-        overlay.appendChild(fragment)
-        return fragment
-      }
-
-      function makeDraggable(el) {
-        const header = el.querySelector('.window-header')
-
-        let offsetX = 0, offsetY = 0
-        let dragging = false
-
-        header.addEventListener('mousedown', (e) => {
-          dragging = true
-
-          offsetX = e.clientX - el.offsetLeft
-          offsetY = e.clientY - el.offsetTop
-
-          el.style.zIndex = Date.now()
-        })
-
-        document.addEventListener('mousemove', (e) => {
-          if (!dragging) return
-
-          el.style.left = (e.clientX - offsetX) + 'px'
-          el.style.top = (e.clientY - offsetY) + 'px'
-        })
-
-        document.addEventListener('mouseup', () => {
-          dragging = false
-        })
-      }
-    </script>
-  </div>
-  <style>
-    .overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-  </style>
 
   <script>
     // 本番データを読み込んで上書き
