@@ -27,7 +27,7 @@ customElements.define('dm-window', class DmWindow extends HTMLElement {
         resize: both;
         overflow: hidden;
         pointer-events: initial;
-        position: absolute;
+        position: absolute !important;
       }
 
       .header {
@@ -56,7 +56,6 @@ customElements.define('dm-window', class DmWindow extends HTMLElement {
       .content {
         flex: 1;
         overflow: auto;
-        // padding: 6px;
       }
     `)
   }

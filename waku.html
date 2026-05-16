@@ -68,11 +68,38 @@
   <main>
     <iframe name="main" src="http://localhost:8080"
       style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+    <script>
+      /** @type {HTMLIFrameElement} */
+      const iframe = document.currentScript.previousElementSibling
+      iframe.addEventListener('load', () => {
+        console.log('Iframe loaded', iframe.contentWindow)
+        iframe.contentWindow.addEventListener('click', (ev) => {
+          console.log('Clicked inside iframe', ev)
+          if (ev.target.href?.startsWith('ssh:')) {
+            ev.preventDefault()
+            const url = new URL(ev.target.href)
+            const win = openSSHWindow({ host: url.hostname, role: 'writer' })
+            const rect = ev.target.getBoundingClientRect()
+            const frameRect = iframe.getBoundingClientRect()
+            win.style.left = frameRect.left + rect.right + 'px'
+            win.style.top = frameRect.top + rect.top + 'px'
+            win.style.width = '80ch'
+            win.style.height = '24em'
+          }
+        })
+      })
+    </script>
   </main>
   <aside>
     <span title="Computer to Human actions">right</span>
-    <a href="ssh-terminal.html?session=083c3d9f5ff660c8"
-      onclick="window.open(this.href,'_blank', 'popup,width=800,height=600'); return false;">T1</a>
+    <button>T1
+      <script>
+        document.currentScript.parentElement.addEventListener('click', () => {
+          console.log('Creating new SSH window for T1')
+          openSSHWindow({ host: 'nanopi-r1.local' })
+        })
+      </script>
+    </button>
     <a href="ssh-terminal.html?session=083c3d9f5ff660c8&role=writer"
       onclick="window.open(this.href,'_blank', 'popup,width=800,height=600'); return false;">T2</a>
     <a href="ssh-terminal.html?host=nanopi-r1.local"
@@ -91,37 +118,47 @@
       <div style="display: flex;">
         <div>テスト</div>
         <div>テスト</div>
-        <div id="overlay" class="overlay" style="z-index: 9;">
-          <dm-window title="テスト">
-            <h2>Hello</h2>
-            <button>クリック</button>
+      </div>
+      <div id="overlay" class="overlay" style="z-index: 9">
+        <template>
+          <dm-window>
+            <dm-ssh-terminal></dm-ssh-terminal>
           </dm-window>
-          <template>
-            <dm-window>
-              <dm-ssh-terminal></dm-ssh-terminal>
-            </dm-window>
-          </template>
-          <script>
-            const overlay = document.currentScript.parentElement
-            const template = overlay.querySelector('template')
+        </template>
+        <script>
+          const overlay = document.currentScript.parentElement
+          const template = overlay.querySelector('template')
 
-            function createWindow({ title = "Window", content } = {}) {
-              const fragment = template.content.firstElementChild.cloneNode(true)
-              overlay.appendChild(fragment)
-              return fragment
-            }
-          </script>
-          <style>
-            .overlay {
-              position: fixed;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              pointer-events: none;
-            }
-          </style>
-        </div>
+          function createWindow({ title = "Window", content } = {}) {
+            const fragment = template.content.firstElementChild.cloneNode(true)
+            overlay.appendChild(fragment)
+            return fragment
+          }
+          function openSSHWindow({ socket, session, role, host, broker = 'http://localhost:8080' } = {}) {
+            const window = document.createElement('dm-window')
+            const ssh = document.createElement('dm-ssh-terminal')
+            if (broker) ssh.setAttribute('broker', broker)
+            if (host) ssh.setAttribute('host', host)
+            if (role) ssh.setAttribute('role', role)
+            if (session) ssh.setAttribute('session', session)
+            if (socket) ssh.setAttribute('socket', socket)
+            window.setAttribute('title', `SSH: ${host || session || 'unknown'}`)
+            window.appendChild(ssh)
+            overlay.appendChild(window)
+            return window
+          }
+
+        </script>
+        <style>
+          .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+          }
+        </style>
       </div>
     </div>
     <nav class="center" data-render data-role="ref">

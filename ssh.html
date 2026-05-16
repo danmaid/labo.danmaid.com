@@ -199,9 +199,8 @@
     }
   </style>
 
+  <base href="http://localhost:8080/">
   <script>
-    addEventListener('sessionschange', (e) => console.log('sessions changed', e.target))
-
     const sessions = new class Sessions extends EventTarget {
       #value = []
       get value() { return this.#value }
@@ -209,8 +208,15 @@
         this.#value = v
         this.dispatchEvent(new Event("change"))
       }
+
+      async load() {
+        this.value = await fetch('sessions', {
+          headers: { Authorization: `Bearer ${authToken.value.trim()}` }
+        }).then(r => r.json())
+      }
     }
-    sessions.addEventListener('change', (e) => console.log(e))
+    addEventListener('load', () => sessions.load())
+    sessions.addEventListener('change', () => console.log('Sessions changed', sessions.value))
   </script>
 </head>
 
@@ -286,19 +292,17 @@
     <table>
       <thead>
         <tr>
-          <th>Target</th>
-          <th>C</th>
-          <th>W</th>
-          <th>R</th>
+          <th>id</th>
+          <th>host</th>
+          <th>port</th>
+          <th>username</th>
+          <th>created_at</th>
+          <th>owner</th>
+          <th>clients</th>
           <th>
             <button id="refreshBtn" class="ghost">2. Refresh Session List
               <script>
-                document.currentScript.parentElement.addEventListener("click", async () => {
-                  const d = await fetch(baseUrl.value + "/sessions", {
-                    headers: { Authorization: `Bearer ${authToken.value.trim()}` }
-                  }).then(r => r.json())
-                  sessions.value = d
-                })
+                document.currentScript.parentElement.addEventListener("click", () => sessions.load())
               </script>
             </button>
           </th>
@@ -307,62 +311,23 @@
       <tbody>
         <template>
           <tr data-bind>
-            <td data-text="target"></td>
+            <td data-text="id"></td>
+            <td data-text="host"></td>
+            <td data-text="port"></td>
+            <td data-text="username"></td>
+            <td data-text="created_at"></td>
+            <td data-text="owner"></td>
             <td data-text="clients"></td>
-            <td><input type="checkbox" name="writer" data-attr="checked:writer"></td>
-            <td><input type="checkbox" name="reader" data-attr="checked:reader"></td>
-            <td><input type="radio" name="select"></td>
             <td><button name="open">Open</button></td>
             <td><button name="writer">Writer</button></td>
           </tr>
         </template>
         <script>
           const tbody = document.currentScript.parentElement
-          tbody.addEventListener('change', async (e) => {
-            // 排他制御
-            /** @type {HTMLInputElement} */
-            const el = e.target
-            if (el.type !== 'checkbox' || !el.checked) return
-            const group = el.name
-            if (group !== 'writer' && group !== 'reader') return
-            for (const cb of tbody.querySelectorAll(`input[name="${group}"]`)) {
-              if (cb !== el) cb.checked = false
-            }
-
-            // ターミナル変更
-            const item = el.closest('tr[data-bind]').value
-            console.log({ group, item })
-            const { ws_url } = await fetch(baseUrl.value + `/sessions/${item.session_id}/attach-tokens`, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${authToken.value.trim()}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ mode: group === 'writer' ? "writer" : "readonly" }),
-            }).then(r => r.json())
-            const terminal = group === 'writer' ? writerTerminal : readonlyTerminal
-            terminal.setAttribute("url", ws_url)
-          })
-
-          tbody.addEventListener('click', (e) => {
-            const btn = e.target
-            if (btn.name !== 'open' && btn.name !== 'writer') return
-            const item = btn.closest('tr[data-bind]').value
-            const url = `ssh-terminal.html?session=${item.session_id}` + (btn.name === 'writer' ? '&role=writer' : '')
-            window.open(url, '_blank', 'popup,width=800,height=600')
-          })
-
           const template = document.currentScript.previousElementSibling
           sessions.addEventListener("change", () => {
             tbody.replaceChildren()
-            for (const s of sessions.value) {
-              const item = {
-                ...s,
-                target: `${s.username}@${s.host}:${s.port}`,
-                clients: String(s.client_count),
-                writer: s.has_writer ? "✓" : "",
-                reader: s.has_readonly ? "✓" : "",
-              }
+            for (const item of sessions.value) {
               const fragment = template.content.cloneNode(true)
               for (const el of fragment.querySelectorAll('[data-text]')) {
                 const key = el.getAttribute('data-text')

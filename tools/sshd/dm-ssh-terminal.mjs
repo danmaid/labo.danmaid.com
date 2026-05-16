@@ -28,7 +28,6 @@ class DmSshTerminal extends HTMLElement {
     this.attachShadow({ mode: "open" })
     this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, xtermCss, defaultCss]
     this.view = new TerminalView(this.shadowRoot)
-    if (!this.hasAttribute('broker')) this.setAttribute('broker', 'http://localhost:8080')
   }
 
   static get observedAttributes() { return ["socket", "session", "role", "host", "broker"] }
@@ -186,3 +185,4 @@ class LoginController {
 }
 
 customElements.define("dm-ssh-terminal", DmSshTerminal)
+console.log("dm-ssh-terminal defined")
