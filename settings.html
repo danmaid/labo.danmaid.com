@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+  </style>
+  <script src="js/credentials.js"></script>
+</head>
+
+<body>
+  <fieldset>
+    <legend>CML</legend>
+    <label>username: <input type="text" id="user"></label>
+    <label>password: <input type="password" id="pass"></label>
+    <button>Save
+      <script>
+        document.currentScript.parentElement.addEventListener('click', () => {
+          const username = document.querySelector('#user').value
+          const password = document.querySelector('#pass').value
+          const cml = { username, password }
+          credentials.set('cml', JSON.stringify(cml))
+          alert('Credentials saved')
+        })
+      </script>
+    </button>
+  </fieldset>
+</body>
+
+</html>
