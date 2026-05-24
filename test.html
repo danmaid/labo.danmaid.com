@@ -16,25 +16,30 @@
 </head>
 
 <body>
-  <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
-  <progress id="progress" value="0"></progress>
-  <button>load
-    <script>
-      document.currentScript.parentElement.addEventListener('click', async () => {
-        const { data } = await sdwan.fetch('/device').then(r => r.json())
-        progress.max = data.length
-        progress.value = 0
-        table.value = await Promise.all(data.map(v => sdwan.fetch('/template/config/attached/' + v.uuid + '?type=RFS')
-          .then(r => r.json()).then(({ config }) => {
-            const summary = config?.startsWith('no config') ? 'no config' : config.split('\n').length + ' lines'
-            const item = { ...v, config, 'config-summary': summary }
-            insertRow(item)
-            progress.value++
-            return item
-          })))
-      })
-    </script>
-  </button>
+  <fieldset>
+    <legend>SD-WAN</legend>
+    <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
+    <progress id="progress" value="0"></progress>
+    <button>load
+      <script>
+        document.currentScript.parentElement.addEventListener('click', async function () {
+          this.disabled = true
+          const { data } = await sdwan.fetch('/device').then(r => r.json())
+          progress.max = data.length
+          progress.value = 0
+          table.value = await Promise.all(data.map(v => sdwan.fetch('/template/config/attached/' + v.uuid + '?type=RFS')
+            .then(r => r.json()).then(({ config }) => {
+              const summary = config?.startsWith('no config') ? 'no config' : config.split('\n').length + ' lines'
+              const item = { ...v, config, 'config-summary': summary }
+              insertRow(item)
+              progress.value++
+              return item
+            })))
+          this.disabled = false
+        })
+      </script>
+    </button>
+  </fieldset>
 
   <table id="table">
     <thead>
