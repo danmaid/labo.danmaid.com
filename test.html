@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+  </style>
+  <script>
+    class DmSdwan extends HTMLElement {
+      static observedAttributes = ['manager']
+      #manager
+      get manager() { return this.#manager }
+      token = ''
+      cred = { j_username: 'cisco', j_password: 'cisco' }
+
+      attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'manager') return this.#manager = newValue
+      }
+
+      constructor() {
+        super()
+        const shadow = this.attachShadow({ mode: 'open' })
+        shadow.innerHTML = `
+          <slot>
+            <label>username: <input type="text" id="user" autocomplete="username"></label>
+            <label>password: <input type="password" id="pass" autocomplete="current-password"></label>
+          </slot>
+        `
+      }
+
+      /** @type {(path: string, init?: RequestInit) => Promise<Response>} */
+      async fetch(path, init, ctx = {}) {
+        const url = this.manager + '/dataservice' + path
+        const headers = new Headers(init?.headers)
+        if (!headers.has('X-XSRF-Token')) headers.set('X-XSRF-Token', this.token)
+        if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+        const res = await fetch(url, { ...init, headers, credentials: 'include' })
+        if (res.headers.get('Content-Type')?.includes('text/html')) {
+          if (!ctx?.retry) return this.auth().then(() => this.fetch(path, init, { retry: true }))
+        }
+        return res
+      }
+
+      async auth() {
+        console.log('auth')
+        const r = await fetch(this.manager + '/j_security_check', {
+          method: 'POST',
+          body: new URLSearchParams(this.cred),
+          credentials: 'include'
+        })
+        if (!r.ok) throw r
+        this.token = await fetch(this.manager + '/dataservice/client/token', {
+          credentials: 'include'
+        }).then(r => r.text())
+      }
+    }
+    customElements.define('dm-sdwan', DmSdwan)
+  </script>
+</head>
+
+<body>
+  <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
+  <script>
+    /** @type {DmSdwan} */
+    const sdwan = document.getElementById('sdwan')
+  </script>
+
+  <table>
+    <thead>
+      <tr>
+        <th>UUID</th>
+        <th>System IP</th>
+        <th>hostname</th>
+        <th>config
+          <button>get all
+            <script>
+              document.currentScript.parentElement.addEventListener('click', function () {
+                for (const btn of tbody.querySelectorAll('button[name="get.config"]')) btn.click()
+              })
+            </script>
+          </button>
+        </th>
+        <td>
+          <button>load
+            <script>
+              const loadBtn = document.currentScript.parentElement
+              loadBtn.addEventListener('click', async () => {
+                const { data } = await sdwan.fetch('/device').then(r => r.json())
+                for (const item of data) insertRow(item)
+              })
+              document.addEventListener('DOMContentLoaded', () => loadBtn.click())
+            </script>
+          </button>
+          <button>clear
+            <script>document.currentScript.parentElement.addEventListener('click', () => tbody.replaceChildren())</script>
+          </button>
+        </td>
+      </tr>
+      <tr>
+        <style>
+          [data-count]::after {
+            content: attr(data-count);
+          }
+        </style>
+        <td data-count="3/10"><input placeholder="regex">
+          <script>
+            const input = document.currentScript.parentElement.querySelector('input')
+            input.addEventListener('input', () => {
+              const regex = new RegExp(input.value)
+              let count = 0, total = 0
+              for (const row of tbody.querySelectorAll('tr[data-bind]')) {
+                total++
+                const item = row.value
+                if (regex.test(item.uuid)) {
+                  row.style.display = 'none'
+                  count++
+                }
+              }
+              input.parentElement.setAttribute('data-count', `${count}/${total}`)
+            })
+          </script>
+        </td>
+        <td data-count="3/10"><input placeholder="regex"></td>
+        <td data-count="3/10"><input placeholder="regex"></td>
+        <td data-count="3/10"><input placeholder="regex"></td>
+      </tr>
+    </thead>
+    <tbody>
+      <template>
+        <tr data-bind>
+          <td data-text="uuid"></td>
+          <td data-text="system-ip"></td>
+          <td data-text="host-name"></td>
+          <td>
+            <details>
+              <summary>
+                <span data-text="config-summary"></span>
+                <button name="get.config">get
+                  <script>
+                    document.currentScript.parentElement.addEventListener('click', async function () {
+                      this.disabled = true
+                      const row = this.closest('tr[data-bind]')
+                      const item = row.value
+                      const { config } = await sdwan.fetch('/template/config/attached/' + item.uuid + '?type=RFS').then(r => r.json())
+                      item.config = config
+                      item['config-summary'] = config?.startsWith('no config') ? 'no config' : config.split('\n').length + ' lines'
+                      this.dispatchEvent(new Event('update:item', { bubbles: true }))
+                      this.disabled = false
+                    })
+                  </script>
+                </button>
+              </summary>
+              <pre data-text="config"></pre>
+            </details>
+          </td>
+        </tr>
+      </template>
+      <script>
+        const rowTemplate = document.currentScript.previousElementSibling
+        const tbody = rowTemplate.parentElement
+        function insertRow(item) {
+          const row = rowTemplate.content.cloneNode(true)
+          renderRow(row, item)
+          tbody.appendChild(row)
+        }
+        function renderRow(row, item) {
+          for (const el of row.querySelectorAll('[data-bind]')) {
+            el.value = item
+            el.addEventListener('update:item', function () { renderRow(this, item) })
+          }
+          for (const el of row.querySelectorAll('[data-text]')) {
+            const key = el.getAttribute('data-text')
+            if (item[key]) el.textContent = item[key]
+          }
+        }
+      </script>
+    </tbody>
+  </table>
+</body>
+
+</html>

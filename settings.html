@@ -7,26 +7,29 @@
       color-scheme: dark;
     }
   </style>
-  <script src="js/credentials.js"></script>
+  <script src="js/dm-auth.js"></script>
 </head>
 
 <body>
-  <fieldset>
-    <legend>CML</legend>
-    <label>username: <input type="text" id="user"></label>
-    <label>password: <input type="password" id="pass"></label>
-    <button>Save
-      <script>
-        document.currentScript.parentElement.addEventListener('click', () => {
-          const username = document.querySelector('#user').value
-          const password = document.querySelector('#pass').value
-          const cml = { username, password }
-          credentials.set('cml', JSON.stringify(cml))
-          alert('Credentials saved')
-        })
-      </script>
-    </button>
-  </fieldset>
+  <dm-auth></dm-auth>
+  <form>
+    <fieldset>
+      <legend>CML</legend>
+      <label>username: <input type="text" id="user" autocomplete="username"></label>
+      <label>password: <input type="password" id="pass" autocomplete="current-password"></label>
+      <button>Save
+        <script>
+          document.currentScript.parentElement.addEventListener('click', () => {
+            const username = document.querySelector('#user').value
+            const password = document.querySelector('#pass').value
+            const cml = { username, password }
+            credentials.set('cml', JSON.stringify(cml))
+            alert('Credentials saved')
+          })
+        </script>
+      </button>
+    </fieldset>
+  </form>
 </body>
 
 </html>
