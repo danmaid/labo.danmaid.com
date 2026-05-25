@@ -12,6 +12,7 @@
     }
   </style>
   <script src="js/dm-sdwan.js"></script>
+  <script src="js/dm-catc.js"></script>
   <script src="js/dm-regexp-filter.js"></script>
 </head>
 
@@ -19,22 +20,64 @@
   <fieldset>
     <legend>SD-WAN</legend>
     <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
-    <progress id="progress" value="0"></progress>
     <button>load
       <script>
         document.currentScript.parentElement.addEventListener('click', async function () {
           this.disabled = true
           const { data } = await sdwan.fetch('/device').then(r => r.json())
-          progress.max = data.length
-          progress.value = 0
-          table.value = await Promise.all(data.map(v => sdwan.fetch('/template/config/attached/' + v.uuid + '?type=RFS')
-            .then(r => r.json()).then(({ config }) => {
-              const summary = config?.startsWith('no config') ? 'no config' : config.split('\n').length + ' lines'
-              const item = { ...v, config, 'config-summary': summary }
-              insertRow(item)
-              progress.value++
-              return item
-            })))
+          table.value = await Promise.all(data.map(async v => {
+            const { config } = await sdwan.fetch('/template/config/attached/' + v.uuid + '?type=RFS')
+              .then(r => r.json())
+            const summary = config?.startsWith('no config') ? 'no config' : config.split('\n').length + ' lines'
+            const item = { ...v, config, 'config-summary': summary }
+            insertRow(item)
+            return item
+          }))
+          this.disabled = false
+        })
+      </script>
+    </button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Catalyst Center</legend>
+    <dm-catc id="catc" server="https://catc.danmaid.com"></dm-catc>
+    <button>load
+      <script>
+        document.currentScript.parentElement.addEventListener('click', async function () {
+          this.disabled = true
+          // const { response } = await catc.fetch('/dna/intent/api/v1/network-device?hostname=.*CRT.*').then(r => r.json())
+          const { response } = await catc.fetch('/dna/intent/api/v1/network-device').then(r => r.json())
+          table.value = await Promise.all(response.map(async v => {
+            const { response: { url } } = await catc.fetch('/dna/intent/api/v1/network-device-poller/cli/read-request', {
+              method: 'POST',
+              body: JSON.stringify({
+                commands: ['show running-config'],
+                deviceUuids: [v.id]
+              })
+            }).then(r => r.json())
+            let fileId
+            for (let i = 0; i < 600; i++) {
+              const { response } = await catc.fetch('/dna/intent' + url).then(r => r.json())
+              console.log(response)
+              try {
+                const result = JSON.parse(response.progress)
+                console.log(result)
+                fileId = result.fileId
+                break
+              } catch {
+                await new Promise(r => setTimeout(r, 1000))
+              }
+            }
+            if (!fileId) throw new Error('Timeout while waiting for config')
+            const r = await catc.fetch('/dna/intent/api/v1/file/' + fileId).then(r => r.json())
+            const config = r[0]?.commandResponses?.SUCCESS['show running-config'] || 'no config'
+            const summary = config?.startsWith('no config') ? 'no config' : config.split('\n').length + ' lines'
+            const item = { ...v, config, 'config-summary': summary, uuid: v.id, 'system-ip': v.managementIpAddress, 'host-name': v.hostname }
+            console.log(item)
+            insertRow(item)
+            return item
+          }))
           this.disabled = false
         })
       </script>
@@ -61,9 +104,10 @@
           <button>export
             <script>
               document.currentScript.parentElement.addEventListener('click', () => {
-                const actives = new WeakSet(Array.from(table.querySelectorAll('tr[data-bind]')).filter(v => v.style.display !== 'none').map(v => v.value))
-                const data = table.value.filter(item => actives.has(item))
-                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+                const items = Array.from(table.querySelectorAll('tr[data-bind]'))
+                  .filter(v => v.style.display !== 'none').map(v => v.value)
+                console.log('Exporting data', items)
+                const blob = new Blob([JSON.stringify(items)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url

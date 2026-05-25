@@ -1,12 +1,12 @@
-customElements.define('dm-sdwan', class DmSdwan extends HTMLElement {
-  static observedAttributes = ['manager']
-  #manager = ''
-  get manager() { return this.#manager }
+customElements.define('dm-catc', class DmCatC extends HTMLElement {
+  static observedAttributes = ['server']
+  #server = ''
+  get server() { return this.#server }
   token = ''
   cred
 
   attributeChangedCallback(name, oldValue, newValue) {
-    if (name === 'manager') return this.#manager = newValue
+    if (name === 'server') return this.#server = newValue
   }
 
   constructor() {
@@ -19,39 +19,38 @@ customElements.define('dm-sdwan', class DmSdwan extends HTMLElement {
     `
     const user = shadow.querySelector('#user')
     const pass = shadow.querySelector('#pass')
-    this.cred = JSON.parse(localStorage.getItem('dm-sdwan'))
+    this.cred = JSON.parse(localStorage.getItem('dm-catc'))
     if (this.cred) {
-      user.value = this.cred.j_username
+      user.value = this.cred.username
       pass.value = '************'
     }
     shadow.querySelector('#set').addEventListener('click', () => {
-      this.cred = { j_username: user.value, j_password: pass.value }
-      localStorage.setItem('dm-sdwan', JSON.stringify(this.cred))
+      this.cred = { username: user.value, password: pass.value }
+      localStorage.setItem('dm-catc', JSON.stringify(this.cred))
     })
   }
 
   /** @type {(path: string, init?: RequestInit) => Promise<Response>} */
   async fetch(path, init, ctx = {}) {
-    const url = this.manager + '/dataservice' + path
+    const url = this.server + path
     const headers = new Headers(init?.headers)
-    if (!headers.has('X-XSRF-Token')) headers.set('X-XSRF-Token', this.token)
+    if (!headers.has('X-Auth-Token')) headers.set('X-Auth-Token', this.token)
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
     const res = await fetch(url, { ...init, headers, credentials: 'include' })
-    if (res.headers.get('Content-Type')?.includes('text/html')) {
+    if (res.status === 401) {
       if (!ctx?.retry) return this.auth().then(() => this.fetch(path, init, { retry: true }))
     }
     return res
   }
 
   async auth() {
-    const r = await fetch(this.manager + '/j_security_check', {
+    const { Token } = await fetch(this.server + '/dna/system/api/v1/auth/token', {
       method: 'POST',
-      body: new URLSearchParams(this.cred),
-      credentials: 'include'
-    })
-    if (!r.ok) throw r
-    this.token = await fetch(this.manager + '/dataservice/client/token', {
-      credentials: 'include'
-    }).then(r => r.text())
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Basic ' + btoa(this.cred.username + ':' + this.cred.password)
+      },
+    }).then(r => r.json())
+    this.token = Token
   }
 })
