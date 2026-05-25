@@ -10,6 +10,11 @@
     [data-count]::after {
       content: attr(data-count);
     }
+
+    textarea {
+      font-family: monospace;
+      white-space: pre;
+    }
   </style>
   <script src="js/dm-sdwan.js"></script>
   <script src="js/dm-catc.js"></script>
@@ -91,15 +96,58 @@
         <th>System IP</th>
         <th>hostname</th>
         <th>config</th>
-        <td>
-          <button>clear
+        <td><button>+
             <script>
-              document.currentScript.parentElement.addEventListener('click', () => {
-                table.value = []
-                tbody.replaceChildren()
-                progress.value = 0
+              let matches = 0
+              const td = document.currentScript.closest('td')
+              document.currentScript.parentElement.addEventListener('click', (ev) => {
+                const index = td.cellIndex
+                td.insertAdjacentHTML('beforebegin', `<th>match${matches}</th>`)
+                console.log(td.cellIndex)
+                /** @type {HTMLTableRowElement} */
+                const filters = document.querySelector('tr#filters')
+                const filter = filters.insertCell(index)
+                const input = document.createElement('dm-regexp-filter')
+                input.setAttribute('data-key', `match${matches}`)
+                input.setAttribute('ignore', '')
+                input.addEventListener('input', (e) => {
+                  e.stopPropagation()
+                  let count = 0, total = 0
+                  for (const row of table.querySelectorAll('tr[data-bind]')) {
+                    const td = row.cells[index]
+                    const item = row.value
+                    const regex = new RegExp(input.value, 'gm')
+                    const match = Array.from(item.config.matchAll(regex))
+                    console.log(regex, match)
+                    item[input.getAttribute('data-key')] = match
+                    td.replaceChildren()
+                    for (const m of match) {
+                      td.insertAdjacentHTML('beforeend', `<details>
+                        <summary>${m[1]}</summary>
+                        <textarea cols="80" rows="${Math.min(24, m[0].split('\n').length)}" readonly>${m[0]}</textarea>
+                      </details>`)
+                    }
+                    if (match.length > 0) count++
+                    total++
+                  }
+                  filter.setAttribute('data-count', `${count}/${total}`)
+                })
+                filter.appendChild(input)
+
+                console.log(rowTemplate)
+                const cell = rowTemplate.content.querySelector('tr').insertCell(index)
+                cell.textContent = 'TBD by Template'
+                for (const row of tbody.querySelectorAll('tr[data-bind]')) {
+                  const cell = row.insertCell(index)
+                  cell.textContent = 'TBD'
+                }
+                matches++
               })
             </script>
+          </button></td>
+        <td>
+          <button>clear
+            <script>document.currentScript.parentElement.addEventListener('click', () => tbody.replaceChildren())</script>
           </button>
           <button>export
             <script>
@@ -119,21 +167,26 @@
           </button>
         </td>
       </tr>
-      <tr>
+      <tr id="filters">
         <td><dm-regexp-filter data-key="uuid"></dm-regexp-filter></td>
         <td><dm-regexp-filter data-key="system-ip"></dm-regexp-filter></td>
         <td><dm-regexp-filter data-key="host-name"></dm-regexp-filter></td>
         <td><dm-regexp-filter data-key="config"></dm-regexp-filter></td>
         <script>
           document.currentScript.parentElement.addEventListener('input', (e) => {
-            e.target.closest('td')?.setAttribute('data-count', `${table.value.filter(e.target.filter).length}/${table.value.length}`)
-          })
-          document.currentScript.parentElement.addEventListener('input', (e) => {
-            const filters = Array.from(table.querySelectorAll('dm-regexp-filter')).map(v => v.filter)
+            const filters = Array.from(table.querySelectorAll('dm-regexp-filter'))
+              .filter(v => !v.hasAttribute('ignore')).map(v => v.filter)
+            let count = 0, total = 0
             for (const row of table.querySelectorAll('tr[data-bind]')) {
-              row.style.display = filters.some(fn => !fn(row.value)) ? 'none' : ''
+              if (filters.some(fn => !fn(row.value))) {
+                row.style.display = 'none'
+              } else {
+                row.style.display = ''
+                count++
+              }
+              total++
             }
-            e.target.closest('td')?.setAttribute('data-count', `${table.value.filter(e.target.filter).length}/${table.value.length}`)
+            e.target.closest('td')?.setAttribute('data-count', `${count}/${total}`)
           })
         </script>
       </tr>
@@ -149,7 +202,7 @@
               <summary>
                 <span data-text="config-summary"></span>
               </summary>
-              <pre data-text="config"></pre>
+              <textarea data-text="config" cols="80" rows="24" readonly></textarea>
             </details>
           </td>
         </tr>
