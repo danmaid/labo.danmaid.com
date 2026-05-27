@@ -31,12 +31,11 @@
     <table>
       <thead>
         <tr>
-          <td colspan="5">変更対象一覧 <small>チェックしたものが Step2 に反映される</small></td>
+          <td colspan="4">変更対象一覧</td>
           <td colspan="3">config</td>
           <td colspan="3">template</td>
         </tr>
         <tr>
-          <td><input type="checkbox" checked></td>
           <td>system-ip</td>
           <td>hostname</td>
           <td>Device Template</td>
@@ -51,7 +50,6 @@
       </thead>
       <tbody>
         <tr>
-          <td><input type="checkbox" checked></td>
           <td>1.1.1.1</td>
           <td>EXAMPLE1-01CSR01</td>
           <td>EXAMPLE1-01CSR01.Gen2</td>
@@ -64,11 +62,10 @@
           <td><button>&#x1F440</button></td>
         </tr>
         <tr>
-          <td><input type="checkbox" checked></td>
           <td>1.2.1.1</td>
           <td>EXAMPLE2-04CSR01</td>
           <td>EXAMPLE2-04CSR01.Gen2</td>
-          <td>EXAMPLE2-04CSR01_20260527</td>
+          <td>EXAMPLE2-04CSR01</td>
           <td>1233</td>
           <td>1245</td>
           <td><button>&#x1F440</button></td>
@@ -79,44 +76,212 @@
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="11">2 / 2 / 1521 <small>きっと対象は少ないのでページネーションとか入れない</small></td>
+          <td colspan="10">2 / 2 / 1521</td>
         </tr>
       </tfoot>
     </table>
+
     <div>チラ見</div>
     <div id="preview" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <fieldset>
     <legend>Step2. 変更用にテンプレートを複製して置換 depend on Step1</legend>
-    <label>適用予定日 <input type="date" id="apply-date"></label>
+    <label>適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
 
     <label for="after" style="display: block;">after</label>
     <div id="after" style="height:200px; border: 1px solid gray; "></div>
     <button disabled>Go</button>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="2">Device Template</td>
+          <td colspan="2">CLI Add-On Template</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td>base</td>
+          <td>copy</td>
+          <td>base</td>
+          <td>copy</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>EXAMPLE1-01CSR01_20260527</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td>EXAMPLE2-04CSR01_20260528</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div>チラ見</div>
+    <div id="preview2" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <fieldset>
     <legend>Step3. 現在コンフィグと変更後コンフィグの比較</legend>
-    <label>適用予定日 <input type="date" id="apply-date"></label>
+    <label>適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="6">変更予定後一覧</td>
+        </tr>
+        <tr>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div id="preview3" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <hr>
 
   <fieldset>
     <legend>StepA. Re:現在コンフィグと変更後コンフィグの比較</legend>
-    <label>適用予定日 <input type="date" id="apply-date"></label>
+    <label>適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="6">変更予定後一覧</td>
+        </tr>
+        <tr>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div id="previewA" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <fieldset style="border-color: red;">
     <legend>StepB. テンプレートの差し替え <strong style="color: red;">★danger★</strong></legend>
-    <label>適用予定日 <input type="date" id="apply-date"></label>
+    <button disabled>Go</button>
   </fieldset>
 
   <fieldset>
     <legend>StepC. 変更後コンフィグと置換箇所の比較</legend>
-    <label for="after" style="display: block;">after</label>
-    <textarea id="after" cols="80" rows="10"></textarea>
+    <label style="display: block;">after</label>
+    <div id="afterC" style="height:200px; border: 1px solid gray; "></div>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="6">変更後一覧</td>
+        </tr>
+        <tr>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div id="previewC" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <script>
@@ -176,13 +341,15 @@
         model: beforeModel,
         language: "plaintext",
         theme: "vs-dark",
+        automaticLayout: true,
       })
 
       monaco.editor.create(document.getElementById("preview"), {
         value: "line1\nline2",
         language: "plaintext",
         theme: "vs-dark",
-        readOnly: true
+        readOnly: true,
+        automaticLayout: true
       })
 
       const afterModel = monaco.editor.createModel(
@@ -194,9 +361,10 @@
         document.getElementById("after"),
         {
           theme: "vs-dark",
+          automaticLayout: true,
+          diffCodeLens: true,
         }
       )
-
       afterEditor.setModel({
         original: beforeModel,
         modified: afterModel
@@ -204,7 +372,88 @@
       afterEditor.getOriginalEditor().updateOptions({
         readOnly: true,
       })
-    });
+
+      const preview2Editor = monaco.editor.createDiffEditor(
+        document.getElementById("preview2"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          readOnly: true,
+          diffCodeLens: true,
+        }
+      )
+      const baseModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      const copyModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      preview2Editor.setModel({
+        original: baseModel,
+        modified: copyModel
+      })
+
+      const preview3Editor = monaco.editor.createDiffEditor(
+        document.getElementById("preview3"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          readOnly: true,
+          diffCodeLens: true,
+        }
+      )
+      const before3Model = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      const after3Model = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      preview3Editor.setModel({
+        original: before3Model,
+        modified: after3Model
+      })
+
+      const previewAEditor = monaco.editor.createDiffEditor(
+        document.getElementById("previewA"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          readOnly: true,
+          diffCodeLens: true,
+        }
+      )
+      const beforeAModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      const afterAModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      previewAEditor.setModel({
+        original: beforeAModel,
+        modified: afterAModel
+      })
+
+      monaco.editor.create(document.getElementById("afterC"), {
+        model: afterModel,
+        language: "plaintext",
+        theme: "vs-dark",
+        automaticLayout: true,
+      })
+
+      monaco.editor.create(document.getElementById("previewC"), {
+        value: "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        language: "plaintext",
+        theme: "vs-dark",
+        automaticLayout: true,
+        readOnly: true,
+      })
+    })
   </script>
 
 </body>
