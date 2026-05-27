@@ -140,7 +140,8 @@
 
   <fieldset>
     <legend>Step3. 現在コンフィグと変更後コンフィグの比較</legend>
-    <label>適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
+    <label style="display: block;">適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
+    <button disabled>Go</button>
 
     <table>
       <thead>
@@ -184,63 +185,15 @@
     <div id="preview3" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
-  <hr>
-
-  <fieldset>
-    <legend>StepA. Re:現在コンフィグと変更後コンフィグの比較</legend>
-    <label>適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
-
-    <table>
-      <thead>
-        <tr>
-          <td colspan="6">変更予定後一覧</td>
-        </tr>
-        <tr>
-          <td>system-ip</td>
-          <td>hostname</td>
-          <td>Device Template</td>
-          <td>CLI Add-On Template</td>
-          <td>check</td>
-          <td></td>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1.1.1.1</td>
-          <td>EXAMPLE1-01CSR01</td>
-          <td>EXAMPLE1-01CSR01.Gen2</td>
-          <td>EXAMPLE1-01CSR01_20260528</td>
-          <td>&#x2705</td>
-          <td><button>&#x1F440</button></td>
-        </tr>
-        <tr>
-          <td>1.2.1.1</td>
-          <td>EXAMPLE2-04CSR01</td>
-          <td>EXAMPLE2-04CSR01.Gen2</td>
-          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
-          <td>&#x274C</td>
-          <td><button>&#x1F440</button></td>
-        </tr>
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="6">1 / 1 / 2</td>
-        </tr>
-      </tfoot>
-    </table>
-
-    <div id="previewA" style="height:200px; border: 1px solid gray; "></div>
-  </fieldset>
-
   <fieldset style="border-color: red;">
-    <legend>StepB. テンプレートの差し替え <strong style="color: red;">★danger★</strong></legend>
+    <legend>Step4. テンプレートの差し替え <strong style="color: red;">★danger★</strong></legend>
     <button disabled>Go</button>
   </fieldset>
 
   <fieldset>
-    <legend>StepC. 変更後コンフィグと置換箇所の比較</legend>
+    <legend>Step5. 変更後コンフィグと置換箇所の比較</legend>
     <label style="display: block;">after</label>
-    <div id="afterC" style="height:200px; border: 1px solid gray; "></div>
+    <button disabled>Go</button>
 
     <table>
       <thead>
@@ -281,7 +234,7 @@
       </tfoot>
     </table>
 
-    <div id="previewC" style="height:200px; border: 1px solid gray; "></div>
+    <div id="preview5" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <script>
@@ -417,36 +370,7 @@
         modified: after3Model
       })
 
-      const previewAEditor = monaco.editor.createDiffEditor(
-        document.getElementById("previewA"),
-        {
-          theme: "vs-dark",
-          automaticLayout: true,
-          readOnly: true,
-          diffCodeLens: true,
-        }
-      )
-      const beforeAModel = monaco.editor.createModel(
-        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
-        "plaintext"
-      )
-      const afterAModel = monaco.editor.createModel(
-        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
-        "plaintext"
-      )
-      previewAEditor.setModel({
-        original: beforeAModel,
-        modified: afterAModel
-      })
-
-      monaco.editor.create(document.getElementById("afterC"), {
-        model: afterModel,
-        language: "plaintext",
-        theme: "vs-dark",
-        automaticLayout: true,
-      })
-
-      monaco.editor.create(document.getElementById("previewC"), {
+      monaco.editor.create(document.getElementById("preview5"), {
         value: "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
         language: "plaintext",
         theme: "vs-dark",
