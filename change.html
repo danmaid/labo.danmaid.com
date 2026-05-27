@@ -84,7 +84,7 @@
       </tfoot>
     </table>
     <div>チラ見</div>
-    <div id="editor" style="height:200px; border: 1px solid gray; "></div>
+    <div id="preview" style="height:200px; border: 1px solid gray; "></div>
   </fieldset>
 
   <fieldset>
@@ -92,7 +92,7 @@
     <label>適用予定日 <input type="date" id="apply-date"></label>
 
     <label for="after" style="display: block;">after</label>
-    <textarea id="after" cols="80" rows="10" style="display: block;"></textarea>
+    <div id="after" style="height:200px; border: 1px solid gray; "></div>
     <button disabled>Go</button>
   </fieldset>
 
@@ -167,41 +167,43 @@
     })
 
     require(["vs/editor/editor.main"], function () {
+      const beforeModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+
       monaco.editor.create(document.getElementById("before"), {
-        value: "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        model: beforeModel,
         language: "plaintext",
         theme: "vs-dark",
       })
 
-      monaco.editor.create(document.getElementById("editor"), {
+      monaco.editor.create(document.getElementById("preview"), {
         value: "line1\nline2",
         language: "plaintext",
         theme: "vs-dark",
         readOnly: true
       })
 
-      // const original = monaco.editor.createModel(
-      //   "line1\nline2\nline3",
-      //   "plaintext"
-      // )
+      const afterModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
 
-      // const modified = monaco.editor.createModel(
-      //   "line1\nlineX\nline3",
-      //   "plaintext"
-      // )
+      const afterEditor = monaco.editor.createDiffEditor(
+        document.getElementById("after"),
+        {
+          theme: "vs-dark",
+        }
+      )
 
-      // const diffEditor = monaco.editor.createDiffEditor(
-      //   document.getElementById("editor"),
-      //   {
-      //     theme: "vs-dark",
-      //     readOnly: true
-      //   }
-      // )
-
-      // diffEditor.setModel({
-      //   original: original,
-      //   modified: modified
-      // })
+      afterEditor.setModel({
+        original: beforeModel,
+        modified: afterModel
+      })
+      afterEditor.getOriginalEditor().updateOptions({
+        readOnly: true,
+      })
     });
   </script>
 
