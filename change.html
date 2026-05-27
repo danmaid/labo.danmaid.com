@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    table td {
+      border-right: 1px solid gray;
+      border-bottom: 1px solid gray;
+    }
+  </style>
+  <script src="js/dm-sdwan.js"></script>
+
+  <script src="vendor/vs/loader.js"></script>
+</head>
+
+<body>
+  <fieldset>
+    <legend>SD-WAN</legend>
+    <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step1. 変更対象の抽出</legend>
+    <label for="before" style="display: block;">before</label>
+    <div id="before" style="height:200px; border: 1px solid gray; "></div>
+    <button>Go</button>
+    <table>
+      <thead>
+        <tr>
+          <td colspan="5">変更対象一覧 <small>チェックしたものが Step2 に反映される</small></td>
+          <td colspan="3">config</td>
+          <td colspan="3">template</td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" checked></td>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>start</td>
+          <td>end</td>
+          <td></td>
+          <td>start</td>
+          <td>end</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="checkbox" checked></td>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260527</td>
+          <td>876</td>
+          <td>890</td>
+          <td><button>&#x1F440</button></td>
+          <td>165</td>
+          <td>179</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" checked></td>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td>EXAMPLE2-04CSR01_20260527</td>
+          <td>1233</td>
+          <td>1245</td>
+          <td><button>&#x1F440</button></td>
+          <td>315</td>
+          <td>329</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="11">2 / 2 / 1521 <small>きっと対象は少ないのでページネーションとか入れない</small></td>
+        </tr>
+      </tfoot>
+    </table>
+    <div>チラ見</div>
+    <div id="editor" style="height:200px; border: 1px solid gray; "></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step2. 変更用にテンプレートを複製して置換 depend on Step1</legend>
+    <label>適用予定日 <input type="date" id="apply-date"></label>
+
+    <label for="after" style="display: block;">after</label>
+    <textarea id="after" cols="80" rows="10" style="display: block;"></textarea>
+    <button disabled>Go</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step3. 現在コンフィグと変更後コンフィグの比較</legend>
+    <label>適用予定日 <input type="date" id="apply-date"></label>
+  </fieldset>
+
+  <hr>
+
+  <fieldset>
+    <legend>StepA. Re:現在コンフィグと変更後コンフィグの比較</legend>
+    <label>適用予定日 <input type="date" id="apply-date"></label>
+  </fieldset>
+
+  <fieldset style="border-color: red;">
+    <legend>StepB. テンプレートの差し替え <strong style="color: red;">★danger★</strong></legend>
+    <label>適用予定日 <input type="date" id="apply-date"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>StepC. 変更後コンフィグと置換箇所の比較</legend>
+    <label for="after" style="display: block;">after</label>
+    <textarea id="after" cols="80" rows="10"></textarea>
+  </fieldset>
+
+  <script>
+    /**
+     * input: 対象 ACL (X)
+     * input: 置換後 ACL (X')
+     * 
+     * 対象ACL (X) の抽出
+     * /device
+     * 
+     * ACLから適用済み機器の抽出
+     * GET /template/config/attached/C8K-F0B47180-337F-925E-CF5D-62FE1E169B71?type=DRAFT_RFS
+     * 
+     * 対象機器の適用中デバイステンプレートを抽出 (A)
+     * GET /system/device/vedges
+     * 
+     * デバイステンプレートに紐づく CLI Addon を抽出 (B)
+     * GET /template/device/97dc71e5-72e6-4466-b536-6aa0d2acf919/featuretemplates
+     * or
+     * GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
+     * 
+     * A を複製 (A')
+     * GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
+     * POST /template/device/feature/
+     * 
+     * A' の CLI Addon を B' に紐づけ
+     * ↑が結局中身をローカルに持ってきて新規でPOSTしているのでその中でやればいい。
+     * 
+     * B を複製 (B')
+     * POST /template/feature/clone?id=e0571ddd-3308-41ac-8966-6a1d8858a0e7&name=test1&desc=test1
+     * 
+     * B' の ACL (X) を X' に置換
+     * GET /template/feature/object/02ba49e9-7e46-41d1-a9ec-eea11b163cde
+     * PUT /template/feature/02ba49e9-7e46-41d1-a9ec-eea11b163cde
+     * 
+     * 適用予定日時のラベルを付ける
+     * name: CLI_ホスト名_yyyymmdd(←作業日)
+     * 
+     */
+  </script>
+
+
+  <script>
+    require.config({
+      paths: {
+        vs: "vendor/vs"
+      }
+    })
+
+    require(["vs/editor/editor.main"], function () {
+      monaco.editor.create(document.getElementById("before"), {
+        value: "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        language: "plaintext",
+        theme: "vs-dark",
+      })
+
+      monaco.editor.create(document.getElementById("editor"), {
+        value: "line1\nline2",
+        language: "plaintext",
+        theme: "vs-dark",
+        readOnly: true
+      })
+
+      // const original = monaco.editor.createModel(
+      //   "line1\nline2\nline3",
+      //   "plaintext"
+      // )
+
+      // const modified = monaco.editor.createModel(
+      //   "line1\nlineX\nline3",
+      //   "plaintext"
+      // )
+
+      // const diffEditor = monaco.editor.createDiffEditor(
+      //   document.getElementById("editor"),
+      //   {
+      //     theme: "vs-dark",
+      //     readOnly: true
+      //   }
+      // )
+
+      // diffEditor.setModel({
+      //   original: original,
+      //   modified: modified
+      // })
+    });
+  </script>
+
+</body>
+
+</html>
