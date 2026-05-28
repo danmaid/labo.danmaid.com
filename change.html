@@ -77,7 +77,7 @@
             <td data-text="system-ip"></td>
             <td data-text="host-name"></td>
             <td data-text="template"></td>
-            <td></td>
+            <td data-text="cliName"></td>
             <td data-text="configStart"></td>
             <td data-text="configEnd"></td>
             <td><button>&#x1F440
@@ -97,9 +97,25 @@
                   })
                 </script>
               </button></td>
-            <td></td>
-            <td></td>
-            <td><button>&#x1F440</button></td>
+            <td data-text="cliStart"></td>
+            <td data-text="cliEnd"></td>
+            <td><button>&#x1F440</button>
+              <script>
+                document.currentScript.parentElement.addEventListener('click', function () {
+                  const item = this.closest('tr[data-bind]').value
+                  previewEditor.setValue(item.cliConfig)
+                  const startPos = previewEditor.getModel().getPositionAt(item.cliStart)
+                  const endPost = previewEditor.getModel().getPositionAt(item.cliEnd)
+                  previewEditor.setSelection({
+                    startLineNumber: startPos.lineNumber,
+                    startColumn: startPos.column,
+                    endLineNumber: endPost.lineNumber,
+                    endColumn: endPost.column,
+                  })
+                  previewEditor.revealRangeInCenter(previewEditor.getSelection())
+                })
+              </script>
+            </td>
           </tr>
         </template>
       </tbody>
@@ -120,7 +136,15 @@
               const key = el.getAttribute('data-text')
               if (item[key]) el.textContent = item[key]
             }
-            return tbody.appendChild(row)
+            const first = row.firstElementChild
+            tbody.appendChild(row)
+            first.update = () => {
+              for (const el of first.querySelectorAll('[data-text]')) {
+                const key = el.getAttribute('data-text')
+                if (item[key]) el.textContent = item[key]
+              }
+            }
+            return first
           }
           table.clearRows = () => tbody.replaceChildren()
         }
@@ -154,10 +178,11 @@
           device.config = config
           const start = config.indexOf(before)
           if (start === -1) continue
+          const row = table.insertRow(device)
           const end = start + before.length
           device.configStart = start
           device.configEnd = end
-          const row = table.insertRow(device)
+          row.update()
           // デバイステンプレートに紐づく CLI Addon を抽出 (B)
           // GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
           if (!device.templateId) continue
@@ -166,14 +191,20 @@
           // CLI Addon テンプレートの詳細を取得
           // GET /template/feature/object/e0571ddd-3308-41ac-8966-6a1d8858a0e7
           const cliTemplate = templateDetail.generalTemplates.find(v => v.templateType === 'cli-template')
+          row.update()
           if (!cliTemplate?.templateId) continue
           const cliTemplateDetail = await sdwan.fetch('/template/feature/object/' + cliTemplate.templateId).then(r => r.json())
           device.cliTemplateDetail = cliTemplateDetail
           device.cliName = cliTemplateDetail.templateName
-          for (const el of row.querySelectorAll('[data-text]')) {
-            const key = el.getAttribute('data-text')
-            if (device[key]) el.textContent = device[key]
-          }
+          console.log(cliTemplateDetail)
+          const cliConfig = cliTemplateDetail.templateDefinition.config.vipValue
+          console.log(cliConfig)
+          device.cliConfig = cliConfig
+          const cliStart = cliConfig.indexOf(before)
+          if (cliStart === -1) continue
+          device.cliStart = cliStart
+          device.cliEnd = cliStart + before.length
+          row.update()
         }
         step1.querySelector('#total').textContent = data.length
         this.disabled = false
