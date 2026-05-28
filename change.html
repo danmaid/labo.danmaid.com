@@ -221,7 +221,7 @@
 
     <label for="after" style="display: block;">after</label>
     <div id="after" style="height:200px; border: 1px solid gray; "></div>
-    <button disabled>Go</button>
+    <button>Go</button>
 
     <table>
       <thead>
@@ -266,6 +266,38 @@
 
     <div>チラ見</div>
     <div id="preview2" style="height:200px; border: 1px solid gray; "></div>
+    <script>
+      // input: 置換後 ACL (X')
+      let afterModel // = monaco.editor.createModel()
+      let preview2Editor
+      document.currentScript.parentElement.querySelector('button').addEventListener('click', function () {
+        this.disabled = true
+        const after = afterModel.getValue()
+        console.log(after)
+        /**
+         * 
+         * 
+         * A を複製 (A')
+         * GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
+         * POST /template/device/feature/
+         * 
+         * A' の CLI Addon を B' に紐づけ
+         * ↑が結局中身をローカルに持ってきて新規でPOSTしているのでその中でやればいい。
+         * 
+         * B を複製 (B')
+         * POST /template/feature/clone?id=e0571ddd-3308-41ac-8966-6a1d8858a0e7&name=test1&desc=test1
+         * 
+         * B' の ACL (X) を X' に置換
+         * GET /template/feature/object/02ba49e9-7e46-41d1-a9ec-eea11b163cde
+         * PUT /template/feature/02ba49e9-7e46-41d1-a9ec-eea11b163cde
+         * 
+         * 適用予定日時のラベルを付ける
+         * name: CLI_ホスト名_yyyymmdd(←作業日)
+         * 
+         */
+        this.disabled = false
+      })
+    </script>
   </fieldset>
 
   <fieldset>
@@ -374,28 +406,6 @@
   </fieldset>
 
   <script>
-    /**
-     * input: 置換後 ACL (X')
-     * 
-     * 
-     * A を複製 (A')
-     * GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
-     * POST /template/device/feature/
-     * 
-     * A' の CLI Addon を B' に紐づけ
-     * ↑が結局中身をローカルに持ってきて新規でPOSTしているのでその中でやればいい。
-     * 
-     * B を複製 (B')
-     * POST /template/feature/clone?id=e0571ddd-3308-41ac-8966-6a1d8858a0e7&name=test1&desc=test1
-     * 
-     * B' の ACL (X) を X' に置換
-     * GET /template/feature/object/02ba49e9-7e46-41d1-a9ec-eea11b163cde
-     * PUT /template/feature/02ba49e9-7e46-41d1-a9ec-eea11b163cde
-     * 
-     * 適用予定日時のラベルを付ける
-     * name: CLI_ホスト名_yyyymmdd(←作業日)
-     * 
-     */
   </script>
 
 
@@ -423,7 +433,7 @@
         automaticLayout: true
       })
 
-      const afterModel = monaco.editor.createModel(
+      afterModel = monaco.editor.createModel(
         "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
         "plaintext"
       )
