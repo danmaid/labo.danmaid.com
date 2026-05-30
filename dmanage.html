@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    table td {
+      border-right: 1px solid gray;
+      border-bottom: 1px solid gray;
+    }
+  </style>
+  <script src="js/dm-sdwan.js"></script>
+  <script src="js/dm-load-button.js"></script>
+  <script>
+    customElements.define('dm-sdwan-load-button', class DmSdwanLoadButton extends DmLoadButton {
+      async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
+    })
+  </script>
+</head>
+
+<body>
+  <fieldset>
+    <legend>SD-WAN</legend>
+    <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
+  </fieldset>
+
+  <table>
+    <script>
+      /**
+       * @type {HTMLTableElement & {
+       *   items: unknown[],
+       *   merge: (data: unknown[], header: unknown, comparator?: (a: unknown, b: unknown) => boolean) => void
+       * }}
+       */
+      const table = document.currentScript.parentElement
+      table.items = []
+      table.merge = function (data, header, comparator = (a, b) => a.uuid === b.uuid) {
+        console.log(data, header)
+        for (const item of data) {
+          const exist = this.items.find(v => comparator(v, item))
+          if (exist) {
+            Object.assign(exist, item)
+            exist._row?.update()
+          } else {
+            const newItem = { ...item, details: {} }
+            this.items.push(newItem)
+            const row = this.insertRow(newItem)
+            newItem._row = row
+          }
+        }
+        console.log(this.rows, data.length, table.tBodies[0].rows.length)
+      }
+      table.addEventListener('change', (ev) => {
+        console.log(ev.target.raw, ev)
+        if (ev.target.url === '/system/device/vedges') {
+          table.merge(ev.target.raw.data, ev.target.raw.header)
+        }
+      })
+    </script>
+    <thead>
+      <tr>
+        <td colspan="4">機器一覧
+          <dm-sdwan-load-button url="/system/device/vedges">GET /system/device/vedges</dm-sdwan-load-button>
+
+        </td>
+        <td colspan="3">config</td>
+        <td colspan="3">template</td>
+      </tr>
+      <tr>
+        <td>system-ip</td>
+        <td>hostname</td>
+        <td>Device Template</td>
+        <td>CLI Add-On Template</td>
+        <td>start</td>
+        <td>end</td>
+        <td></td>
+        <td>start</td>
+        <td>end</td>
+        <td></td>
+        <td>Local Configuration</td>
+        <td>Device Template</td>
+        <td>CLI Add-On Template</td>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1.1.1.1</td>
+        <td>EXAMPLE1-01CSR01</td>
+        <td>EXAMPLE1-01CSR01.Gen2</td>
+        <td>EXAMPLE1-01CSR01_20260527</td>
+        <td>876</td>
+        <td>890</td>
+        <td><button>&#x1F440</button></td>
+        <td>165</td>
+        <td>179</td>
+        <td><button>&#x1F440</button></td>
+      </tr>
+      <tr>
+        <td>1.2.1.1</td>
+        <td>EXAMPLE2-04CSR01</td>
+        <td>EXAMPLE2-04CSR01.Gen2</td>
+        <td>EXAMPLE2-04CSR01</td>
+        <td>1233</td>
+        <td>1245</td>
+        <td><button>&#x1F440</button></td>
+        <td>315</td>
+        <td>329</td>
+        <td><button>&#x1F440</button></td>
+      </tr>
+      <template>
+        <tr data-bind>
+          <script>
+            {
+              const row = document.currentScript.parentElement
+              row.addEventListener('change', function (ev) {
+                const item = this.value
+                console.log('CHANGE!!', ev, ev.target.url)
+                if (ev.target.url.startsWith('/template/config/attached/')) {
+                  console.log('CONFIG!!!', ev.target.raw)
+                  item.details.config = ev.target.raw
+                }
+                if (ev.target.url.startsWith('/template/device/object/')) {
+                  console.log('TEMPLATE!!!', ev.target.raw)
+                  item.details.template = ev.target.raw
+                  item.cliTemplateId = ev.target.raw.generalTemplates.find(v => v.templateType === 'cli-template')?.templateId
+                }
+                if (ev.target.url.startsWith('/template/feature/object/')) {
+                  console.log('CLI TEMPLATE!!!', ev.target.raw)
+                  item.details.cliTemplate = ev.target.raw
+                }
+                console.log('MERGE', item)
+                //
+                for (const el of row.querySelectorAll('[data-bind]')) el.value = item
+                for (const el of row.querySelectorAll('[data-text]')) {
+                  const key = el.getAttribute('data-text')
+                  if (item[key]) el.textContent = item[key]
+                }
+                for (const el of row.querySelectorAll('[data-attr]')) {
+                  const attr = el.getAttribute('data-attr')
+                  const [prop, key] = attr.split(':')
+                  if (item[key]) el[prop] = item[key]
+                }
+              })
+            }
+          </script>
+          <td data-text="system-ip"></td>
+          <td data-text="host-name"></td>
+          <td data-text="template"></td>
+          <td data-text="cliName"></td>
+          <td data-text="configStart"></td>
+          <td data-text="configEnd"></td>
+          <td><button>&#x1F440
+              <script>
+                document.currentScript.parentElement.addEventListener('click', function () {
+                  const item = this.closest('tr[data-bind]').value
+                  previewEditor.setValue(item.config)
+                  const startPos = previewEditor.getModel().getPositionAt(item.configStart)
+                  const endPost = previewEditor.getModel().getPositionAt(item.configEnd)
+                  previewEditor.setSelection({
+                    startLineNumber: startPos.lineNumber,
+                    startColumn: startPos.column,
+                    endLineNumber: endPost.lineNumber,
+                    endColumn: endPost.column,
+                  })
+                  previewEditor.revealRangeInCenter(previewEditor.getSelection())
+                })
+              </script>
+            </button></td>
+          <td data-text="cliStart"></td>
+          <td data-text="cliEnd"></td>
+          <td><button>&#x1F440</button>
+            <script>
+              document.currentScript.parentElement.addEventListener('click', function () {
+                const item = this.closest('tr[data-bind]').value
+                previewEditor.setValue(item.cliConfig)
+                const startPos = previewEditor.getModel().getPositionAt(item.cliStart)
+                const endPost = previewEditor.getModel().getPositionAt(item.cliEnd)
+                previewEditor.setSelection({
+                  startLineNumber: startPos.lineNumber,
+                  startColumn: startPos.column,
+                  endLineNumber: endPost.lineNumber,
+                  endColumn: endPost.column,
+                })
+                previewEditor.revealRangeInCenter(previewEditor.getSelection())
+              })
+            </script>
+          </td>
+          <td>
+            <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS" data-attr="value:uuid">
+              GET config
+            </dm-sdwan-load-button>
+          </td>
+          <td>
+            <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId">
+              GET template
+            </dm-sdwan-load-button>
+          </td>
+          <td>
+            <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId">
+              GET cli-template
+            </dm-sdwan-load-button>
+          </td>
+        </tr>
+      </template>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="10">2 / 2 / <span id="total">1521</span></td>
+      </tr>
+    </tfoot>
+    <script>
+      {
+        const table = document.currentScript.parentElement
+        const rowTemplate = table.querySelector('tbody template')
+        const tbody = table.querySelector('tbody')
+        table.insertRow = function (item) {
+          const row = rowTemplate.content.cloneNode(true)
+          for (const el of row.querySelectorAll('[data-bind]')) el.value = item
+          for (const el of row.querySelectorAll('[data-text]')) {
+            const key = el.getAttribute('data-text')
+            if (item[key]) el.textContent = item[key]
+          }
+          for (const el of row.querySelectorAll('[data-attr]')) {
+            const attr = el.getAttribute('data-attr')
+            const [prop, key] = attr.split(':')
+            if (item[key]) el[prop] = item[key]
+          }
+          const first = row.firstElementChild
+          tbody.appendChild(row)
+          first.update = () => {
+            for (const el of first.querySelectorAll('[data-text]')) {
+              const key = el.getAttribute('data-text')
+              if (item[key]) el.textContent = item[key]
+            }
+          }
+          return first
+        }
+        table.clearRows = () => tbody.replaceChildren()
+      }
+    </script>
+  </table>
+
+  <div id="editor" style="height:200px; border: 1px solid gray; "></div>
+  <script src="vendor/vs/loader.js"></script>
+  <script>
+    require.config({ paths: { vs: "vendor/vs" } })
+    require(["vs/editor/editor.main"], function () {
+      editor = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+
+      editor = monaco.editor.create(document.getElementById("editor"), {
+        model: editor,
+        language: "plaintext",
+        theme: "vs-dark",
+        automaticLayout: true,
+      })
+    })
+  </script>
+
+  <fieldset id="step1">
+    <legend>Step1. 変更対象の抽出</legend>
+    <label for="beforeEditor" style="display: block;">before</label>
+    <div id="beforeEditor" style="height:200px; border: 1px solid gray; "></div>
+    <button id="go">Go</button>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="4">変更対象一覧 <progress id="progress" value="0"></progress></td>
+          <td colspan="3">config</td>
+          <td colspan="3">template</td>
+        </tr>
+        <tr>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>start</td>
+          <td>end</td>
+          <td></td>
+          <td>start</td>
+          <td>end</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260527</td>
+          <td>876</td>
+          <td>890</td>
+          <td><button>&#x1F440</button></td>
+          <td>165</td>
+          <td>179</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>1233</td>
+          <td>1245</td>
+          <td><button>&#x1F440</button></td>
+          <td>315</td>
+          <td>329</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <template>
+          <tr data-bind>
+            <td data-text="system-ip"></td>
+            <td data-text="host-name"></td>
+            <td data-text="template"></td>
+            <td data-text="cliName"></td>
+            <td data-text="configStart"></td>
+            <td data-text="configEnd"></td>
+            <td><button>&#x1F440
+                <script>
+                  document.currentScript.parentElement.addEventListener('click', function () {
+                    const item = this.closest('tr[data-bind]').value
+                    previewEditor.setValue(item.config)
+                    const startPos = previewEditor.getModel().getPositionAt(item.configStart)
+                    const endPost = previewEditor.getModel().getPositionAt(item.configEnd)
+                    previewEditor.setSelection({
+                      startLineNumber: startPos.lineNumber,
+                      startColumn: startPos.column,
+                      endLineNumber: endPost.lineNumber,
+                      endColumn: endPost.column,
+                    })
+                    previewEditor.revealRangeInCenter(previewEditor.getSelection())
+                  })
+                </script>
+              </button></td>
+            <td data-text="cliStart"></td>
+            <td data-text="cliEnd"></td>
+            <td><button>&#x1F440</button>
+              <script>
+                document.currentScript.parentElement.addEventListener('click', function () {
+                  const item = this.closest('tr[data-bind]').value
+                  previewEditor.setValue(item.cliConfig)
+                  const startPos = previewEditor.getModel().getPositionAt(item.cliStart)
+                  const endPost = previewEditor.getModel().getPositionAt(item.cliEnd)
+                  previewEditor.setSelection({
+                    startLineNumber: startPos.lineNumber,
+                    startColumn: startPos.column,
+                    endLineNumber: endPost.lineNumber,
+                    endColumn: endPost.column,
+                  })
+                  previewEditor.revealRangeInCenter(previewEditor.getSelection())
+                })
+              </script>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="10">2 / 2 / <span id="total">1521</span></td>
+        </tr>
+      </tfoot>
+      <script>
+        {
+          const table = document.currentScript.parentElement
+          const rowTemplate = table.querySelector('tbody template')
+          const tbody = table.querySelector('tbody')
+          table.insertRow = function (item) {
+            const row = rowTemplate.content.cloneNode(true)
+            for (const el of row.querySelectorAll('[data-bind]')) el.value = item
+            for (const el of row.querySelectorAll('[data-text]')) {
+              const key = el.getAttribute('data-text')
+              if (item[key]) el.textContent = item[key]
+            }
+            const first = row.firstElementChild
+            tbody.appendChild(row)
+            first.update = () => {
+              for (const el of first.querySelectorAll('[data-text]')) {
+                const key = el.getAttribute('data-text')
+                if (item[key]) el.textContent = item[key]
+              }
+            }
+            return first
+          }
+          table.clearRows = () => tbody.replaceChildren()
+        }
+      </script>
+    </table>
+
+    <div>チラ見</div>
+    <div id="preview" style="height:200px; border: 1px solid gray; "></div>
+    <script>
+      // input: 対象 ACL (X)
+      let beforeModel // = monaco.editor.createModel()
+      let previewEditor // = monaco.editor.create()
+      let step1 = document.getElementById('step1')
+      step1.querySelector('button#go').addEventListener('click', async function () {
+        this.disabled = true
+        const before = beforeModel.getValue()
+        // 対象機器の適用中デバイステンプレートを抽出 (A)
+        // GET /system/device/vedges
+        const { data } = await sdwan.fetch('/system/device/vedges').then(r => r.json())
+        const table = step1.querySelector('table')
+        table.clearRows()
+        const progress = step1.querySelector('#progress')
+        progress.max = data.length
+        progress.value = 0
+        for (const device of data) {
+          progress.value++
+          // ACLから適用済み機器の抽出
+          // GET /template/config/attached/C8K-F0B47180-337F-925E-CF5D-62FE1E169B71?type=RFS
+          const { config } = await sdwan.fetch('/template/config/attached/' + device.uuid + '?type=RFS')
+            .then(r => r.json())
+          device.config = config
+          const start = config.indexOf(before)
+          if (start === -1) continue
+          const row = table.insertRow(device)
+          const end = start + before.length
+          device.configStart = start
+          device.configEnd = end
+          row.update()
+          // デバイステンプレートに紐づく CLI Addon を抽出 (B)
+          // GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
+          if (!device.templateId) continue
+          const templateDetail = await sdwan.fetch('/template/device/object/' + device.templateId).then(r => r.json())
+          device.templateDetail = templateDetail
+          // CLI Addon テンプレートの詳細を取得
+          // GET /template/feature/object/e0571ddd-3308-41ac-8966-6a1d8858a0e7
+          const cliTemplate = templateDetail.generalTemplates.find(v => v.templateType === 'cli-template')
+          row.update()
+          if (!cliTemplate?.templateId) continue
+          const cliTemplateDetail = await sdwan.fetch('/template/feature/object/' + cliTemplate.templateId).then(r => r.json())
+          device.cliTemplateDetail = cliTemplateDetail
+          device.cliName = cliTemplateDetail.templateName
+          console.log(cliTemplateDetail)
+          const cliConfig = cliTemplateDetail.templateDefinition.config.vipValue
+          console.log(cliConfig)
+          device.cliConfig = cliConfig
+          const cliStart = cliConfig.indexOf(before)
+          if (cliStart === -1) continue
+          device.cliStart = cliStart
+          device.cliEnd = cliStart + before.length
+          row.update()
+        }
+        step1.querySelector('#total').textContent = data.length
+        this.disabled = false
+      })
+      /**
+       * 1052 show celler 
+       */
+    </script>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step2. 変更用にテンプレートを複製して置換 depend on Step1</legend>
+    <label>適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
+
+    <label for="after" style="display: block;">after</label>
+    <div id="after" style="height:200px; border: 1px solid gray; "></div>
+    <button>Go</button>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="2">Device Template</td>
+          <td colspan="2">CLI Add-On Template</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td>base</td>
+          <td>copy</td>
+          <td>base</td>
+          <td>copy</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>EXAMPLE1-01CSR01_20260527</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td>EXAMPLE2-04CSR01_20260528</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div>チラ見</div>
+    <div id="preview2" style="height:200px; border: 1px solid gray; "></div>
+    <script>
+      // input: 置換後 ACL (X')
+      let afterModel // = monaco.editor.createModel()
+      let preview2Editor
+      document.currentScript.parentElement.querySelector('button').addEventListener('click', function () {
+        this.disabled = true
+        const after = afterModel.getValue()
+        console.log(after)
+        /**
+         * 
+         * 
+         * A を複製 (A')
+         * GET /template/device/object/97dc71e5-72e6-4466-b536-6aa0d2acf919
+         * POST /template/device/feature/
+         * 
+         * A' の CLI Addon を B' に紐づけ
+         * ↑が結局中身をローカルに持ってきて新規でPOSTしているのでその中でやればいい。
+         * 
+         * B を複製 (B')
+         * POST /template/feature/clone?id=e0571ddd-3308-41ac-8966-6a1d8858a0e7&name=test1&desc=test1
+         * 
+         * B' の ACL (X) を X' に置換
+         * GET /template/feature/object/02ba49e9-7e46-41d1-a9ec-eea11b163cde
+         * PUT /template/feature/02ba49e9-7e46-41d1-a9ec-eea11b163cde
+         * 
+         * 適用予定日時のラベルを付ける
+         * name: CLI_ホスト名_yyyymmdd(←作業日)
+         * 
+         */
+        this.disabled = false
+      })
+    </script>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step3. 現在コンフィグと変更後コンフィグの比較</legend>
+    <label style="display: block;">適用予定日 <input type="date" id="apply-date" value="2026-05-28"></label>
+    <button disabled>Go</button>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="6">変更予定後一覧</td>
+        </tr>
+        <tr>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div id="preview3" style="height:200px; border: 1px solid gray; "></div>
+  </fieldset>
+
+  <fieldset style="border-color: red;">
+    <legend>Step4. テンプレートの差し替え <strong style="color: red;">★danger★</strong></legend>
+    <button disabled>Go</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step5. 変更後コンフィグと置換箇所の比較</legend>
+    <label style="display: block;">after</label>
+    <button disabled>Go</button>
+
+    <table>
+      <thead>
+        <tr>
+          <td colspan="6">変更後一覧</td>
+        </tr>
+        <tr>
+          <td>system-ip</td>
+          <td>hostname</td>
+          <td>Device Template</td>
+          <td>CLI Add-On Template</td>
+          <td>check</td>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.1.1.1</td>
+          <td>EXAMPLE1-01CSR01</td>
+          <td>EXAMPLE1-01CSR01.Gen2</td>
+          <td>EXAMPLE1-01CSR01_20260528</td>
+          <td>&#x2705</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+        <tr>
+          <td>1.2.1.1</td>
+          <td>EXAMPLE2-04CSR01</td>
+          <td>EXAMPLE2-04CSR01.Gen2</td>
+          <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
+          <td>&#x274C</td>
+          <td><button>&#x1F440</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">1 / 1 / 2</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div id="preview5" style="height:200px; border: 1px solid gray; "></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step6. 作業後情報取得(admin-tech)</legend>
+    <label style="display: block;">情報取得</label>
+    <button disabled>Go</button>
+  </fieldset>
+
+  <script>
+  </script>
+
+  <script>
+    require.config({ paths: { vs: "vendor/vs" } })
+    require(["vs/editor/editor.main"], function () {
+      beforeModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+
+      beforeEditor = monaco.editor.create(document.getElementById("beforeEditor"), {
+        model: beforeModel,
+        language: "plaintext",
+        theme: "vs-dark",
+        automaticLayout: true,
+      })
+
+      previewEditor = monaco.editor.create(document.getElementById("preview"), {
+        value: "line1\nline2",
+        language: "plaintext",
+        theme: "vs-dark",
+        readOnly: true,
+        automaticLayout: true
+      })
+
+      afterModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+
+      const afterEditor = monaco.editor.createDiffEditor(
+        document.getElementById("after"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          diffCodeLens: true,
+        }
+      )
+      afterEditor.setModel({
+        original: beforeModel,
+        modified: afterModel
+      })
+      afterEditor.getOriginalEditor().updateOptions({
+        readOnly: true,
+      })
+
+      const preview2Editor = monaco.editor.createDiffEditor(
+        document.getElementById("preview2"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          readOnly: true,
+          diffCodeLens: true,
+        }
+      )
+      const baseModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      const copyModel = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      preview2Editor.setModel({
+        original: baseModel,
+        modified: copyModel
+      })
+
+      const preview3Editor = monaco.editor.createDiffEditor(
+        document.getElementById("preview3"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          readOnly: true,
+          diffCodeLens: true,
+        }
+      )
+      const before3Model = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      const after3Model = monaco.editor.createModel(
+        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        "plaintext"
+      )
+      preview3Editor.setModel({
+        original: before3Model,
+        modified: after3Model
+      })
+
+      monaco.editor.create(document.getElementById("preview5"), {
+        value: "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any\n 60 permit ip 10.138.100.112 0.0.0.15 any",
+        language: "plaintext",
+        theme: "vs-dark",
+        automaticLayout: true,
+        readOnly: true,
+      })
+    })
+  </script>
+
+</body>
+
+</html>
