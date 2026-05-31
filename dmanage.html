@@ -25,26 +25,34 @@
       async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
     })
   </script>
+  <script src="js/dmanage/dm-preview-button.js"></script>
+  <script type="module" src="js/dmanage/focus-preview.mjs"></script>
 </head>
 
-<body>
+<body style="margin: 0; overflow: hidden;">
   <div style="height: 100vh; display: grid; grid-template-rows: auto 1fr 300px;">
     <div>
       <fieldset style="flex: 0 0 auto;">
         <legend>SD-WAN</legend>
         <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
       </fieldset>
-      <dm-sdwan-load-button id="vedges" url="/system/device/vedges">GET /system/device/vedges</dm-sdwan-load-button>
-      <button id="previewVedges">&#x1F440</button>
+      <dm-sdwan-load-button id="vedges" url="/system/device/vedges"></dm-sdwan-load-button>
+      <span>
+        <script>
+          {
+            const el = document.currentScript.parentElement
+            const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+            loader.addEventListener('change', () => {
+              const data = loader.raw?.data
+              el.textContent = data?.length >= 0 ? data.length + ' devices' : ''
+            })
+          }
+        </script>
+      </span>
+      <dm-preview-button target="editor" language="json"></dm-preview-button>
       <script>
         vedges.addEventListener('change', (ev) => {
-          console.log('CHANGE!!', ev, ev.target.url)
           table.merge(ev.target.raw.data, ev.target.raw.header)
-        })
-        previewVedges.addEventListener('click', () => {
-          console.log(editor)
-          editor.setValue(JSON.stringify(vedges.raw, null, 2))
-          monaco.editor.setModelLanguage(editor.getModel(), 'json')
         })
       </script>
     </div>
@@ -87,38 +95,14 @@
           <tr>
             <td>system-ip</td>
             <td>hostname</td>
-            <td>Device Template</td>
-            <td>CLI Add-On Template</td>
+            <td>status</td>
+            <td>config</td>
             <td>Local Configuration</td>
             <td>Device Template</td>
             <td>CLI Add-On Template</td>
           </tr>
         </thead>
         <tbody style="overflow: auto;">
-          <tr>
-            <td>1.1.1.1</td>
-            <td>EXAMPLE1-01CSR01</td>
-            <td>EXAMPLE1-01CSR01.Gen2</td>
-            <td>EXAMPLE1-01CSR01_20260527</td>
-            <td>876</td>
-            <td>890</td>
-            <td><button>&#x1F440</button></td>
-            <td>165</td>
-            <td>179</td>
-            <td><button>&#x1F440</button></td>
-          </tr>
-          <tr>
-            <td>1.2.1.1</td>
-            <td>EXAMPLE2-04CSR01</td>
-            <td>EXAMPLE2-04CSR01.Gen2</td>
-            <td>EXAMPLE2-04CSR01</td>
-            <td>1233</td>
-            <td>1245</td>
-            <td><button>&#x1F440</button></td>
-            <td>315</td>
-            <td>329</td>
-            <td><button>&#x1F440</button></td>
-          </tr>
           <template>
             <tr data-bind>
               <script>
@@ -157,60 +141,61 @@
               </script>
               <td data-text="system-ip"></td>
               <td data-text="host-name"></td>
-              <td data-text="template"></td>
-              <td data-text="cliName"></td>
-              <td data-text="configStart"></td>
-              <td data-text="configEnd"></td>
-              <td><button>&#x1F440
+              <td data-text="configStatusMessage"></td>
+              <td data-text="configOperationMode"></td>
+              <td>
+                <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS"
+                  data-attr="value:uuid"></dm-sdwan-load-button>
+                <span>
                   <script>
-                    document.currentScript.parentElement.addEventListener('click', function () {
-                      const item = this.closest('tr[data-bind]').value
-                      previewEditor.setValue(item.config)
-                      const startPos = previewEditor.getModel().getPositionAt(item.configStart)
-                      const endPost = previewEditor.getModel().getPositionAt(item.configEnd)
-                      previewEditor.setSelection({
-                        startLineNumber: startPos.lineNumber,
-                        startColumn: startPos.column,
-                        endLineNumber: endPost.lineNumber,
-                        endColumn: endPost.column,
+                    {
+                      const el = document.currentScript.parentElement
+                      const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                      loader.addEventListener('change', () => {
+                        const lines = loader.raw?.config?.split('\n')
+                        el.textContent = /no config/i.test(lines?.[0])
+                          ? lines[0].startsWith('no config') ? lines[0] : ''
+                          : lines.length + ' lines'
                       })
-                      previewEditor.revealRangeInCenter(previewEditor.getSelection())
-                    })
+                    }
                   </script>
-                </button></td>
-              <td data-text="cliStart"></td>
-              <td data-text="cliEnd"></td>
-              <td><button>&#x1F440</button>
-                <script>
-                  document.currentScript.parentElement.addEventListener('click', function () {
-                    const item = this.closest('tr[data-bind]').value
-                    previewEditor.setValue(item.cliConfig)
-                    const startPos = previewEditor.getModel().getPositionAt(item.cliStart)
-                    const endPost = previewEditor.getModel().getPositionAt(item.cliEnd)
-                    previewEditor.setSelection({
-                      startLineNumber: startPos.lineNumber,
-                      startColumn: startPos.column,
-                      endLineNumber: endPost.lineNumber,
-                      endColumn: endPost.column,
-                    })
-                    previewEditor.revealRangeInCenter(previewEditor.getSelection())
-                  })
-                </script>
+                </span>
+                <dm-preview-button target="editor" language="json"></dm-preview-button>
+                <dm-preview-button target="editor" language="plaintext" select="config"></dm-preview-button>
               </td>
               <td>
-                <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS" data-attr="value:uuid">
-                  GET config
-                </dm-sdwan-load-button>
+                <dm-sdwan-load-button url="/template/device/object/{value}"
+                  data-attr="value:templateId"></dm-sdwan-load-button>
+                <span>
+                  <script>
+                    {
+                      const el = document.currentScript.parentElement
+                      const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                      loader.addEventListener('change', () => {
+                        el.textContent = loader.raw?.templateName ?? ''
+                      })
+                    }
+                  </script>
+                </span>
+                <dm-preview-button target="editor" language="json"></dm-preview-button>
               </td>
               <td>
-                <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId">
-                  GET template
-                </dm-sdwan-load-button>
-              </td>
-              <td>
-                <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId">
-                  GET cli-template
-                </dm-sdwan-load-button>
+                <dm-sdwan-load-button url="/template/feature/object/{value}"
+                  data-attr="value:cliTemplateId"></dm-sdwan-load-button>
+                <span>
+                  <script>
+                    {
+                      const el = document.currentScript.parentElement
+                      const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                      loader.addEventListener('change', () => {
+                        el.textContent = loader.raw?.templateName ?? ''
+                      })
+                    }
+                  </script>
+                </span>
+                <dm-preview-button target="editor" language="json"></dm-preview-button>
+                <dm-preview-button target="editor" language="plaintext"
+                  select="templateDefinition.config.vipValue"></dm-preview-button>
               </td>
             </tr>
           </template>
@@ -254,7 +239,7 @@
     </div>
 
     <div>
-      <div id="editor" style="height: 100%; border: 1px solid gray; "></div>
+      <div id="editor" style="height: 100%; "></div>
       <script src="vendor/vs/loader.js"></script>
       <script>
         require.config({ paths: { vs: "vendor/vs" } })
@@ -310,10 +295,10 @@
           <td>EXAMPLE1-01CSR01_20260527</td>
           <td>876</td>
           <td>890</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
           <td>165</td>
           <td>179</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
         <tr>
           <td>1.2.1.1</td>
@@ -322,10 +307,10 @@
           <td>EXAMPLE2-04CSR01</td>
           <td>1233</td>
           <td>1245</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
           <td>315</td>
           <td>329</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
         <template>
           <tr data-bind>
@@ -335,7 +320,7 @@
             <td data-text="cliName"></td>
             <td data-text="configStart"></td>
             <td data-text="configEnd"></td>
-            <td><button>&#x1F440
+            <td><button>👀
                 <script>
                   document.currentScript.parentElement.addEventListener('click', function () {
                     const item = this.closest('tr[data-bind]').value
@@ -354,7 +339,7 @@
               </button></td>
             <td data-text="cliStart"></td>
             <td data-text="cliEnd"></td>
-            <td><button>&#x1F440</button>
+            <td><button>👀</button>
               <script>
                 document.currentScript.parentElement.addEventListener('click', function () {
                   const item = this.closest('tr[data-bind]').value
@@ -501,7 +486,7 @@
           <td>EXAMPLE1-01CSR01_20260527</td>
           <td>EXAMPLE1-01CSR01_20260528</td>
           <td>&#x2705</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
         <tr>
           <td>EXAMPLE2-04CSR01.Gen2</td>
@@ -509,7 +494,7 @@
           <td>EXAMPLE2-04CSR01</td>
           <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
           <td>&#x274C</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
       </tbody>
       <tfoot>
@@ -581,7 +566,7 @@
           <td>EXAMPLE1-01CSR01.Gen2</td>
           <td>EXAMPLE1-01CSR01_20260528</td>
           <td>&#x2705</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
         <tr>
           <td>1.2.1.1</td>
@@ -589,7 +574,7 @@
           <td>EXAMPLE2-04CSR01.Gen2</td>
           <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
           <td>&#x274C</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
       </tbody>
       <tfoot>
@@ -633,7 +618,7 @@
           <td>EXAMPLE1-01CSR01.Gen2</td>
           <td>EXAMPLE1-01CSR01_20260528</td>
           <td>&#x2705</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
         <tr>
           <td>1.2.1.1</td>
@@ -641,7 +626,7 @@
           <td>EXAMPLE2-04CSR01.Gen2</td>
           <td style="background-color: red;">EXAMPLE2-04CSR01_20260528</td>
           <td>&#x274C</td>
-          <td><button>&#x1F440</button></td>
+          <td><button>👀</button></td>
         </tr>
       </tbody>
       <tfoot>

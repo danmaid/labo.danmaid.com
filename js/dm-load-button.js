@@ -4,9 +4,12 @@ class DmLoadButton extends HTMLElement {
   static template = document.createElement('template')
   static {
     this.template.innerHTML = `
-          <button><slot></slot>
-            <progress style="display: none;"></progress>
-            <span></span>
+          <button>
+            <slot>
+              <slot name="title">Load</slot>
+              <progress style="display: none;"></progress>
+              <span></span>
+            </slot>
           </button>  
         `
   }

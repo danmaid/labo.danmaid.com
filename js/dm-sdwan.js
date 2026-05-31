@@ -44,7 +44,7 @@ customElements.define('dm-sdwan', class DmSdwan extends HTMLElement {
   }
 
   async auth() {
-    const r = await fetch(this.manager + '/j_security_check', {
+    const r = await fetch(this.manager + '/dataservice/j_security_check', {
       method: 'POST',
       body: new URLSearchParams(this.cred),
       credentials: 'include'
