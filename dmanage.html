@@ -2,6 +2,7 @@
 <html lang="ja">
 
 <head>
+  <link rel="stylesheet" href="css/full-screen.css">
   <style>
     :root {
       color-scheme: dark;
@@ -10,6 +11,11 @@
     table td {
       border-right: 1px solid gray;
       border-bottom: 1px solid gray;
+    }
+
+    table thead,
+    table tfoot {
+      background-color: canvas;
     }
   </style>
   <script src="js/dm-sdwan.js"></script>
@@ -22,245 +28,253 @@
 </head>
 
 <body>
-  <fieldset>
-    <legend>SD-WAN</legend>
-    <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
-  </fieldset>
-
-  <table>
-    <script>
-      /**
-       * @type {HTMLTableElement & {
-       *   items: unknown[],
-       *   merge: (data: unknown[], header: unknown, comparator?: (a: unknown, b: unknown) => boolean) => void
-       * }}
-       */
-      const table = document.currentScript.parentElement
-      table.items = []
-      table.merge = function (data, header, comparator = (a, b) => a.uuid === b.uuid) {
-        console.log(data, header)
-        for (const item of data) {
-          const exist = this.items.find(v => comparator(v, item))
-          if (exist) {
-            Object.assign(exist, item)
-            exist._row?.update()
-          } else {
-            const newItem = { ...item, details: {} }
-            this.items.push(newItem)
-            const row = this.insertRow(newItem)
-            newItem._row = row
-          }
-        }
-        console.log(this.rows, data.length, table.tBodies[0].rows.length)
-      }
-      table.addEventListener('change', (ev) => {
-        console.log(ev.target.raw, ev)
-        if (ev.target.url === '/system/device/vedges') {
+  <div style="height: 100vh; display: grid; grid-template-rows: auto 1fr 300px;">
+    <div>
+      <fieldset style="flex: 0 0 auto;">
+        <legend>SD-WAN</legend>
+        <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
+      </fieldset>
+      <dm-sdwan-load-button id="vedges" url="/system/device/vedges">GET /system/device/vedges</dm-sdwan-load-button>
+      <button id="previewVedges">&#x1F440</button>
+      <script>
+        vedges.addEventListener('change', (ev) => {
+          console.log('CHANGE!!', ev, ev.target.url)
           table.merge(ev.target.raw.data, ev.target.raw.header)
-        }
-      })
-    </script>
-    <thead>
-      <tr>
-        <td colspan="4">機器一覧
-          <dm-sdwan-load-button url="/system/device/vedges">GET /system/device/vedges</dm-sdwan-load-button>
+        })
+        previewVedges.addEventListener('click', () => {
+          console.log(editor)
+          editor.setValue(JSON.stringify(vedges.raw, null, 2))
+          monaco.editor.setModelLanguage(editor.getModel(), 'json')
+        })
+      </script>
+    </div>
 
-        </td>
-        <td colspan="3">config</td>
-        <td colspan="3">template</td>
-      </tr>
-      <tr>
-        <td>system-ip</td>
-        <td>hostname</td>
-        <td>Device Template</td>
-        <td>CLI Add-On Template</td>
-        <td>start</td>
-        <td>end</td>
-        <td></td>
-        <td>start</td>
-        <td>end</td>
-        <td></td>
-        <td>Local Configuration</td>
-        <td>Device Template</td>
-        <td>CLI Add-On Template</td>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>1.1.1.1</td>
-        <td>EXAMPLE1-01CSR01</td>
-        <td>EXAMPLE1-01CSR01.Gen2</td>
-        <td>EXAMPLE1-01CSR01_20260527</td>
-        <td>876</td>
-        <td>890</td>
-        <td><button>&#x1F440</button></td>
-        <td>165</td>
-        <td>179</td>
-        <td><button>&#x1F440</button></td>
-      </tr>
-      <tr>
-        <td>1.2.1.1</td>
-        <td>EXAMPLE2-04CSR01</td>
-        <td>EXAMPLE2-04CSR01.Gen2</td>
-        <td>EXAMPLE2-04CSR01</td>
-        <td>1233</td>
-        <td>1245</td>
-        <td><button>&#x1F440</button></td>
-        <td>315</td>
-        <td>329</td>
-        <td><button>&#x1F440</button></td>
-      </tr>
-      <template>
-        <tr data-bind>
-          <script>
-            {
-              const row = document.currentScript.parentElement
-              row.addEventListener('change', function (ev) {
-                const item = this.value
-                console.log('CHANGE!!', ev, ev.target.url)
-                if (ev.target.url.startsWith('/template/config/attached/')) {
-                  console.log('CONFIG!!!', ev.target.raw)
-                  item.details.config = ev.target.raw
+    <div style="overflow: auto;">
+      <table id="table">
+        <script>
+          /**
+           * @type {HTMLTableElement & {
+           *   items: unknown[],
+           *   merge: (data: unknown[], header: unknown, comparator?: (a: unknown, b: unknown) => boolean) => void
+           * }}
+           */
+          const table = document.currentScript.parentElement
+          table.items = []
+          table.merge = function (data, header, comparator = (a, b) => a.uuid === b.uuid) {
+            console.log(data, header)
+            for (const item of data) {
+              const exist = this.items.find(v => comparator(v, item))
+              if (exist) {
+                Object.assign(exist, item)
+                exist._row?.update()
+              } else {
+                const newItem = { ...item, details: {} }
+                this.items.push(newItem)
+                const row = this.insertRow(newItem)
+                newItem._row = row
+              }
+            }
+            console.log(this.rows, data.length, table.tBodies[0].rows.length)
+          }
+          table.addEventListener('change', (ev) => {
+            console.log(ev.target.raw, ev)
+            if (ev.target.url === '/system/device/vedges') {
+              table.merge(ev.target.raw.data, ev.target.raw.header)
+            }
+          })
+        </script>
+        <thead style="position: sticky; top: 0;">
+          <tr>
+            <td>system-ip</td>
+            <td>hostname</td>
+            <td>Device Template</td>
+            <td>CLI Add-On Template</td>
+            <td>Local Configuration</td>
+            <td>Device Template</td>
+            <td>CLI Add-On Template</td>
+          </tr>
+        </thead>
+        <tbody style="overflow: auto;">
+          <tr>
+            <td>1.1.1.1</td>
+            <td>EXAMPLE1-01CSR01</td>
+            <td>EXAMPLE1-01CSR01.Gen2</td>
+            <td>EXAMPLE1-01CSR01_20260527</td>
+            <td>876</td>
+            <td>890</td>
+            <td><button>&#x1F440</button></td>
+            <td>165</td>
+            <td>179</td>
+            <td><button>&#x1F440</button></td>
+          </tr>
+          <tr>
+            <td>1.2.1.1</td>
+            <td>EXAMPLE2-04CSR01</td>
+            <td>EXAMPLE2-04CSR01.Gen2</td>
+            <td>EXAMPLE2-04CSR01</td>
+            <td>1233</td>
+            <td>1245</td>
+            <td><button>&#x1F440</button></td>
+            <td>315</td>
+            <td>329</td>
+            <td><button>&#x1F440</button></td>
+          </tr>
+          <template>
+            <tr data-bind>
+              <script>
+                {
+                  const row = document.currentScript.parentElement
+                  row.addEventListener('change', function (ev) {
+                    const item = this.value
+                    console.log('CHANGE!!', ev, ev.target.url)
+                    if (ev.target.url.startsWith('/template/config/attached/')) {
+                      console.log('CONFIG!!!', ev.target.raw)
+                      item.details.config = ev.target.raw
+                    }
+                    if (ev.target.url.startsWith('/template/device/object/')) {
+                      console.log('TEMPLATE!!!', ev.target.raw)
+                      item.details.template = ev.target.raw
+                      item.cliTemplateId = ev.target.raw.generalTemplates.find(v => v.templateType === 'cli-template')?.templateId
+                    }
+                    if (ev.target.url.startsWith('/template/feature/object/')) {
+                      console.log('CLI TEMPLATE!!!', ev.target.raw)
+                      item.details.cliTemplate = ev.target.raw
+                    }
+                    console.log('MERGE', item)
+                    //
+                    for (const el of row.querySelectorAll('[data-bind]')) el.value = item
+                    for (const el of row.querySelectorAll('[data-text]')) {
+                      const key = el.getAttribute('data-text')
+                      if (item[key]) el.textContent = item[key]
+                    }
+                    for (const el of row.querySelectorAll('[data-attr]')) {
+                      const attr = el.getAttribute('data-attr')
+                      const [prop, key] = attr.split(':')
+                      if (item[key]) el[prop] = item[key]
+                    }
+                  })
                 }
-                if (ev.target.url.startsWith('/template/device/object/')) {
-                  console.log('TEMPLATE!!!', ev.target.raw)
-                  item.details.template = ev.target.raw
-                  item.cliTemplateId = ev.target.raw.generalTemplates.find(v => v.templateType === 'cli-template')?.templateId
-                }
-                if (ev.target.url.startsWith('/template/feature/object/')) {
-                  console.log('CLI TEMPLATE!!!', ev.target.raw)
-                  item.details.cliTemplate = ev.target.raw
-                }
-                console.log('MERGE', item)
-                //
-                for (const el of row.querySelectorAll('[data-bind]')) el.value = item
-                for (const el of row.querySelectorAll('[data-text]')) {
+              </script>
+              <td data-text="system-ip"></td>
+              <td data-text="host-name"></td>
+              <td data-text="template"></td>
+              <td data-text="cliName"></td>
+              <td data-text="configStart"></td>
+              <td data-text="configEnd"></td>
+              <td><button>&#x1F440
+                  <script>
+                    document.currentScript.parentElement.addEventListener('click', function () {
+                      const item = this.closest('tr[data-bind]').value
+                      previewEditor.setValue(item.config)
+                      const startPos = previewEditor.getModel().getPositionAt(item.configStart)
+                      const endPost = previewEditor.getModel().getPositionAt(item.configEnd)
+                      previewEditor.setSelection({
+                        startLineNumber: startPos.lineNumber,
+                        startColumn: startPos.column,
+                        endLineNumber: endPost.lineNumber,
+                        endColumn: endPost.column,
+                      })
+                      previewEditor.revealRangeInCenter(previewEditor.getSelection())
+                    })
+                  </script>
+                </button></td>
+              <td data-text="cliStart"></td>
+              <td data-text="cliEnd"></td>
+              <td><button>&#x1F440</button>
+                <script>
+                  document.currentScript.parentElement.addEventListener('click', function () {
+                    const item = this.closest('tr[data-bind]').value
+                    previewEditor.setValue(item.cliConfig)
+                    const startPos = previewEditor.getModel().getPositionAt(item.cliStart)
+                    const endPost = previewEditor.getModel().getPositionAt(item.cliEnd)
+                    previewEditor.setSelection({
+                      startLineNumber: startPos.lineNumber,
+                      startColumn: startPos.column,
+                      endLineNumber: endPost.lineNumber,
+                      endColumn: endPost.column,
+                    })
+                    previewEditor.revealRangeInCenter(previewEditor.getSelection())
+                  })
+                </script>
+              </td>
+              <td>
+                <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS" data-attr="value:uuid">
+                  GET config
+                </dm-sdwan-load-button>
+              </td>
+              <td>
+                <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId">
+                  GET template
+                </dm-sdwan-load-button>
+              </td>
+              <td>
+                <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId">
+                  GET cli-template
+                </dm-sdwan-load-button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+        <tfoot style="position: sticky; bottom: 0;">
+          <tr>
+            <td colspan="10">2 / 2 / <span id="total">1521</span></td>
+          </tr>
+        </tfoot>
+        <script>
+          {
+            const table = document.currentScript.parentElement
+            const rowTemplate = table.querySelector('tbody template')
+            const tbody = table.querySelector('tbody')
+            table.insertRow = function (item) {
+              const row = rowTemplate.content.cloneNode(true)
+              for (const el of row.querySelectorAll('[data-bind]')) el.value = item
+              for (const el of row.querySelectorAll('[data-text]')) {
+                const key = el.getAttribute('data-text')
+                if (item[key]) el.textContent = item[key]
+              }
+              for (const el of row.querySelectorAll('[data-attr]')) {
+                const attr = el.getAttribute('data-attr')
+                const [prop, key] = attr.split(':')
+                if (item[key]) el[prop] = item[key]
+              }
+              const first = row.firstElementChild
+              tbody.appendChild(row)
+              first.update = () => {
+                for (const el of first.querySelectorAll('[data-text]')) {
                   const key = el.getAttribute('data-text')
                   if (item[key]) el.textContent = item[key]
                 }
-                for (const el of row.querySelectorAll('[data-attr]')) {
-                  const attr = el.getAttribute('data-attr')
-                  const [prop, key] = attr.split(':')
-                  if (item[key]) el[prop] = item[key]
-                }
-              })
+              }
+              return first
             }
-          </script>
-          <td data-text="system-ip"></td>
-          <td data-text="host-name"></td>
-          <td data-text="template"></td>
-          <td data-text="cliName"></td>
-          <td data-text="configStart"></td>
-          <td data-text="configEnd"></td>
-          <td><button>&#x1F440
-              <script>
-                document.currentScript.parentElement.addEventListener('click', function () {
-                  const item = this.closest('tr[data-bind]').value
-                  previewEditor.setValue(item.config)
-                  const startPos = previewEditor.getModel().getPositionAt(item.configStart)
-                  const endPost = previewEditor.getModel().getPositionAt(item.configEnd)
-                  previewEditor.setSelection({
-                    startLineNumber: startPos.lineNumber,
-                    startColumn: startPos.column,
-                    endLineNumber: endPost.lineNumber,
-                    endColumn: endPost.column,
-                  })
-                  previewEditor.revealRangeInCenter(previewEditor.getSelection())
-                })
-              </script>
-            </button></td>
-          <td data-text="cliStart"></td>
-          <td data-text="cliEnd"></td>
-          <td><button>&#x1F440</button>
-            <script>
-              document.currentScript.parentElement.addEventListener('click', function () {
-                const item = this.closest('tr[data-bind]').value
-                previewEditor.setValue(item.cliConfig)
-                const startPos = previewEditor.getModel().getPositionAt(item.cliStart)
-                const endPost = previewEditor.getModel().getPositionAt(item.cliEnd)
-                previewEditor.setSelection({
-                  startLineNumber: startPos.lineNumber,
-                  startColumn: startPos.column,
-                  endLineNumber: endPost.lineNumber,
-                  endColumn: endPost.column,
-                })
-                previewEditor.revealRangeInCenter(previewEditor.getSelection())
-              })
-            </script>
-          </td>
-          <td>
-            <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS" data-attr="value:uuid">
-              GET config
-            </dm-sdwan-load-button>
-          </td>
-          <td>
-            <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId">
-              GET template
-            </dm-sdwan-load-button>
-          </td>
-          <td>
-            <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId">
-              GET cli-template
-            </dm-sdwan-load-button>
-          </td>
-        </tr>
-      </template>
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="10">2 / 2 / <span id="total">1521</span></td>
-      </tr>
-    </tfoot>
-    <script>
-      {
-        const table = document.currentScript.parentElement
-        const rowTemplate = table.querySelector('tbody template')
-        const tbody = table.querySelector('tbody')
-        table.insertRow = function (item) {
-          const row = rowTemplate.content.cloneNode(true)
-          for (const el of row.querySelectorAll('[data-bind]')) el.value = item
-          for (const el of row.querySelectorAll('[data-text]')) {
-            const key = el.getAttribute('data-text')
-            if (item[key]) el.textContent = item[key]
+            table.clearRows = () => tbody.replaceChildren()
           }
-          for (const el of row.querySelectorAll('[data-attr]')) {
-            const attr = el.getAttribute('data-attr')
-            const [prop, key] = attr.split(':')
-            if (item[key]) el[prop] = item[key]
-          }
-          const first = row.firstElementChild
-          tbody.appendChild(row)
-          first.update = () => {
-            for (const el of first.querySelectorAll('[data-text]')) {
-              const key = el.getAttribute('data-text')
-              if (item[key]) el.textContent = item[key]
-            }
-          }
-          return first
-        }
-        table.clearRows = () => tbody.replaceChildren()
-      }
-    </script>
-  </table>
+        </script>
+      </table>
+    </div>
 
-  <div id="editor" style="height:200px; border: 1px solid gray; "></div>
-  <script src="vendor/vs/loader.js"></script>
-  <script>
-    require.config({ paths: { vs: "vendor/vs" } })
-    require(["vs/editor/editor.main"], function () {
-      editor = monaco.editor.createModel(
-        "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
-        "plaintext"
-      )
+    <div>
+      <div id="editor" style="height: 100%; border: 1px solid gray; "></div>
+      <script src="vendor/vs/loader.js"></script>
+      <script>
+        require.config({ paths: { vs: "vendor/vs" } })
+        require(["vs/editor/editor.main"], function () {
+          const model = monaco.editor.createModel(
+            "ip access-list extended N1:B-Segment\n 10 permit ip 10.128.100.16 0.0.0.15 any\n 20 permit ip 10.128.100.128 0.0.0.127 any\n 30 permit ip 10.128.100.0 0.0.0.15 any\n 40 permit ip 10.128.100.96 0.0.0.15 any\n 50 permit ip 10.128.100.112 0.0.0.15 any",
+            "plaintext"
+          )
 
-      editor = monaco.editor.create(document.getElementById("editor"), {
-        model: editor,
-        language: "plaintext",
-        theme: "vs-dark",
-        automaticLayout: true,
-      })
-    })
-  </script>
+          editor = monaco.editor.create(document.getElementById("editor"), {
+            model: model,
+            theme: "vs-dark",
+            automaticLayout: true,
+            tabSize: 2,
+            insertSpaces: true,
+          })
+        })
+      </script>
+    </div>
+  </div>
 
   <fieldset id="step1">
     <legend>Step1. 変更対象の抽出</legend>
