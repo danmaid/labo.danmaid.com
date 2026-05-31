@@ -16,8 +16,10 @@ customElements.define('dm-preview-button', class DmPreviewButton extends HTMLEle
 
     this.addEventListener('click', () => {
       const src = this.src
-      const model = globalThis[this.getAttribute('target')]?.getModel()
+      const editor = globalThis[this.getAttribute('target')]
+      const model = editor?.getModel()
       if (!src || !model) return
+      editor.updateOptions({ readOnly: true })
       const language = this.getAttribute('language')
       if (language) monaco.editor.setModelLanguage(model, language)
       const select = this.getAttribute('select')
