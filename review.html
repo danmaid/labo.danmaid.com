@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <link rel="stylesheet" href="css/full-screen.css">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    table td {
+      border-right: 1px solid gray;
+      border-bottom: 1px solid gray;
+      white-space: nowrap;
+    }
+
+    table thead,
+    table tfoot {
+      background-color: canvas;
+    }
+  </style>
+  <script src="js/dm-sdwan.js"></script>
+  <script src="js/dm-catc.js"></script>
+  <script src="js/dm-load-button.js"></script>
+  <script>
+    customElements.define('dm-sdwan-load-button', class DmSdwanLoadButton extends DmLoadButton {
+      async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
+    })
+  </script>
+  <script src="js/dmanage/dm-preview-button.js"></script>
+  <script type="module" src="js/dmanage/focus-preview.mjs"></script>
+  <script src="vendor/vs/loader.js"></script>
+</head>
+
+<body style="margin: 0; overflow: hidden;">
+  <div style="height: 100vh; display: grid; grid-template-rows: auto auto minmax(0, 1fr) 300px;">
+    <div style="display: flex;">
+      <fieldset>
+        <legend>SD-WAN</legend>
+        <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
+      </fieldset>
+      <fieldset>
+        <legend>Catalyst Center</legend>
+        <dm-sdwan id="catc" server="https://cml29090.danmaid.com"></dm-sdwan>
+      </fieldset>
+    </div>
+
+    <div style="display: flex;">
+      <fieldset>
+        <legend>通信影響視点</legend>
+        <span>TBD</span>
+      </fieldset>
+      <fieldset>
+        <legend>設定変更視点</legend>
+        <input type="text" placeholder="REQ99999" value="REQ99999">
+        <button>Load</button>
+      </fieldset>
+      <fieldset>
+        <legend>作業影響視点(競合)</legend>
+        <input type="date"> ～ <input type="date">
+        <button>Load</button>
+      </fieldset>
+    </div>
+
+    <div style="min-height: 0; display: flex;">
+      <fieldset style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+        <legend>影響機器一覧</legend>
+        <div>
+          <dm-sdwan-load-button id="vedges" url="/system/device/vedges"></dm-sdwan-load-button>
+          <span>
+            <script>
+              {
+                const el = document.currentScript.parentElement
+                const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                loader.addEventListener('change', () => {
+                  const data = loader.raw?.data
+                  el.textContent = data?.length >= 0 ? data.length + ' devices' : ''
+                })
+              }
+            </script>
+          </span>
+          <dm-preview-button target="editor" language="json"></dm-preview-button>
+          <input placeholder="generic filter (TBD)">
+        </div>
+        <div style="overflow: auto; flex: 1; min-height: 0;">
+          <table>
+            <thead style="position: sticky; top: 0;">
+              <tr>
+                <td>hostname</td>
+                <td>current</td>
+                <td>next</td>
+              </tr>
+            </thead>
+            <tbody>
+              <template>
+                <tr data-bind>
+                  <td data-text="system-ip"></td>
+                  <td data-text="host-name"></td>
+                  <td data-text="configStatusMessage"></td>
+                  <td data-text="configOperationMode"></td>
+                  <td>
+                    <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS"
+                      data-attr="value:uuid"></dm-sdwan-load-button>
+                    <span>
+                      <script>
+                        {
+                          const el = document.currentScript.parentElement
+                          const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                          loader.addEventListener('change', () => {
+                            const lines = loader.raw?.config?.split('\n')
+                            el.textContent = /no config/i.test(lines?.[0])
+                              ? lines[0].startsWith('no config') ? lines[0] : ''
+                              : lines.length + ' lines'
+                          })
+                        }
+                      </script>
+                    </span>
+                    <dm-preview-button target="editor" language="json"></dm-preview-button>
+                    <dm-preview-button target="editor" language="plaintext" select="config"></dm-preview-button>
+                  </td>
+                  <td>
+                    <dm-sdwan-load-button url="/template/device/object/{value}"
+                      data-attr="value:templateId"></dm-sdwan-load-button>
+                    <span>
+                      <script>
+                        {
+                          const el = document.currentScript.parentElement
+                          const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                          const row = el.closest('tr[data-bind]')
+                          loader.addEventListener('change', () => {
+                            el.textContent = loader.raw?.templateName ?? ''
+                            row.data.cliTemplateId = loader.raw?.generalTemplates?.find(v => v.templateType === 'cli-template')?.templateId
+                            for (const el of row.querySelectorAll('[data-attr]')) {
+                              const attr = el.getAttribute('data-attr')
+                              const [prop, key] = attr.split(':')
+                              if (row.data[key] != null) el[prop] = row.data[key]
+                            }
+                          })
+                        }
+                      </script>
+                    </span>
+                    <dm-preview-button target="editor" language="json"></dm-preview-button>
+                  </td>
+                  <td>
+                    <dm-sdwan-load-button url="/template/feature/object/{value}"
+                      data-attr="value:cliTemplateId"></dm-sdwan-load-button>
+                    <span>
+                      <script>
+                        {
+                          const el = document.currentScript.parentElement
+                          const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                          loader.addEventListener('change', () => {
+                            el.textContent = loader.raw?.templateName ?? ''
+                          })
+                        }
+                      </script>
+                    </span>
+                    <dm-preview-button target="editor" language="json"></dm-preview-button>
+                    <dm-preview-button target="editor" language="plaintext"
+                      select="templateDefinition.config.vipValue"></dm-preview-button>
+                  </td>
+                </tr>
+              </template>
+              <script>
+                {
+                  const tbody = document.currentScript.parentElement
+                  const template = tbody.querySelector('template')
+                  vedges.addEventListener('change', () => {
+                    tbody.replaceChildren()
+                    for (const data of vedges.raw?.data) {
+                      const row = template.content.cloneNode(true)
+                      for (const el of row.querySelectorAll('[data-bind]')) el.data = data
+                      for (const el of row.querySelectorAll('[data-text]')) {
+                        const key = el.getAttribute('data-text')
+                        if (data[key] != null) el.textContent = data[key]
+                      }
+                      for (const el of row.querySelectorAll('[data-attr]')) {
+                        const attr = el.getAttribute('data-attr')
+                        const [prop, key] = attr.split(':')
+                        if (data[key] != null) el[prop] = data[key]
+                      }
+                      tbody.appendChild(row)
+                    }
+                  })
+                }
+              </script>
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>作業一覧</legend>
+      </fieldset>
+    </div>
+
+    <div>
+      <fieldset style="height: 100%; box-sizing: border-box;">
+        <legend>プレビュー</legend>
+        <div id="editor" style="height: 100%; "></div>
+      </fieldset>
+      <script>
+        require.config({ paths: { vs: "vendor/vs" } })
+        require(["vs/editor/editor.main"], function () {
+          editor = monaco.editor.create(document.getElementById("editor"), {
+            theme: "vs-dark",
+            automaticLayout: true,
+            tabSize: 2,
+            insertSpaces: true,
+          })
+        })
+      </script>
+    </div>
+  </div>
+</body>
+
+</html>
