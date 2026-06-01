@@ -36,71 +36,61 @@
   <div style="height: 100vh; display: grid; grid-template-rows: auto auto minmax(0, 1fr) 300px;">
     <div style="display: flex;">
       <fieldset>
-        <legend>SD-WAN</legend>
+        <legend>SD-WAN <a href="https://manager.sdwan.danmaid.com" target="_blank">↗️</a></legend>
         <dm-sdwan id="sdwan" manager="https://manager.sdwan.danmaid.com"></dm-sdwan>
       </fieldset>
       <fieldset>
-        <legend>Catalyst Center</legend>
+        <legend>Catalyst Center <a href="https://cml29090.danmaid.com" target="_blank">↗️</a></legend>
         <dm-sdwan id="catc" server="https://cml29090.danmaid.com"></dm-sdwan>
       </fieldset>
     </div>
 
     <div style="display: flex;">
       <fieldset>
-        <legend>通信影響視点</legend>
+        <legend>通信影響視点(会議1)</legend>
         <span>TBD</span>
       </fieldset>
       <fieldset>
-        <legend>設定変更視点</legend>
-        <input type="text" placeholder="REQ99999" value="REQ99999">
-        <button>Load</button>
+        <legend>設定変更視点(会議2)</legend>
+        <input id="text-filter" placeholder="REQ99999">
       </fieldset>
       <fieldset>
         <legend>作業影響視点(競合)</legend>
         <input type="date"> ～ <input type="date">
-        <button>Load</button>
+        <button>TBD</button>
       </fieldset>
     </div>
 
     <div style="min-height: 0; display: flex;">
-      <fieldset style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-        <legend>影響機器一覧</legend>
-        <div>
-          <dm-sdwan-load-button id="vedges" url="/system/device/vedges"></dm-sdwan-load-button>
-          <span>
-            <script>
-              {
-                const el = document.currentScript.parentElement
-                const loader = el.parentElement.querySelector('dm-sdwan-load-button')
-                loader.addEventListener('change', () => {
-                  const data = loader.raw?.data
-                  el.textContent = data?.length >= 0 ? data.length + ' devices' : ''
-                })
-              }
-            </script>
-          </span>
+      <fieldset style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; flex: 1; min-width: 0;">
+        <legend>関連機器一覧
+          <dm-sdwan-load-button id="vedges" url="/system/device/vedges"><span
+              slot="title">SD-WAN</span></dm-sdwan-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
-          <input placeholder="generic filter (TBD)">
-        </div>
-        <div style="overflow: auto; flex: 1; min-height: 0;">
-          <table>
+          <dm-load-button><span slot="title">CatC</span></dm-load-button>
+          <dm-preview-button target="editor" language="json"></dm-preview-button>
+        </legend>
+        <div style="overflow: auto; flex: 1; min-height: 0; min-width: 0;">
+          <table id="effective-devices">
             <thead style="position: sticky; top: 0;">
               <tr>
-                <td>hostname</td>
-                <td>current</td>
-                <td>next</td>
+                <td>Hostname</td>
+                <td>Device Status</td>
+                <td>Mode</td>
+                <td>Local Configuration</td>
+                <td>Device Template</td>
+                <td>CLI Add-On Template</td>
               </tr>
             </thead>
             <tbody>
               <template>
                 <tr data-bind>
-                  <td data-text="system-ip"></td>
                   <td data-text="host-name"></td>
                   <td data-text="configStatusMessage"></td>
                   <td data-text="configOperationMode"></td>
                   <td>
-                    <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS"
-                      data-attr="value:uuid"></dm-sdwan-load-button>
+                    <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS" data-attr="value:uuid"><span
+                        slot="title"></span></dm-sdwan-load-button>
                     <span>
                       <script>
                         {
@@ -119,8 +109,8 @@
                     <dm-preview-button target="editor" language="plaintext" select="config"></dm-preview-button>
                   </td>
                   <td>
-                    <dm-sdwan-load-button url="/template/device/object/{value}"
-                      data-attr="value:templateId"></dm-sdwan-load-button>
+                    <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId"><span
+                        slot="title"></span></dm-sdwan-load-button>
                     <span>
                       <script>
                         {
@@ -142,8 +132,8 @@
                     <dm-preview-button target="editor" language="json"></dm-preview-button>
                   </td>
                   <td>
-                    <dm-sdwan-load-button url="/template/feature/object/{value}"
-                      data-attr="value:cliTemplateId"></dm-sdwan-load-button>
+                    <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId"><span
+                        slot="title"></span></dm-sdwan-load-button>
                     <span>
                       <script>
                         {
@@ -161,35 +151,108 @@
                   </td>
                 </tr>
               </template>
-              <script>
-                {
-                  const tbody = document.currentScript.parentElement
-                  const template = tbody.querySelector('template')
-                  vedges.addEventListener('change', () => {
-                    tbody.replaceChildren()
-                    for (const data of vedges.raw?.data) {
-                      const row = template.content.cloneNode(true)
-                      for (const el of row.querySelectorAll('[data-bind]')) el.data = data
-                      for (const el of row.querySelectorAll('[data-text]')) {
-                        const key = el.getAttribute('data-text')
-                        if (data[key] != null) el.textContent = data[key]
-                      }
-                      for (const el of row.querySelectorAll('[data-attr]')) {
-                        const attr = el.getAttribute('data-attr')
-                        const [prop, key] = attr.split(':')
-                        if (data[key] != null) el[prop] = data[key]
-                      }
-                      tbody.appendChild(row)
-                    }
-                  })
-                }
-              </script>
             </tbody>
+            <script>
+              {
+                const table = document.currentScript.parentElement
+                const tbody = table.tBodies[0]
+                const template = tbody.querySelector('template')
+                const vedges = document.getElementById('vedges')
+                const textFilter = document.getElementById('text-filter')
+                vedges.addEventListener('change', reload)
+                textFilter.addEventListener('change', reload)
+
+                function reload() {
+                  tbody.replaceChildren()
+                  let items = vedges.raw?.data
+                  if (textFilter.value) {
+                    const regex = new RegExp(textFilter.value)
+                    items = items?.filter(v => regex.test(JSON.stringify(v))) ?? []
+                  }
+                  for (const data of items) {
+                    const row = template.content.cloneNode(true)
+                    for (const el of row.querySelectorAll('[data-bind]')) el.data = data
+                    for (const el of row.querySelectorAll('[data-text]')) {
+                      const key = el.getAttribute('data-text')
+                      if (data[key] != null) el.textContent = data[key]
+                    }
+                    for (const el of row.querySelectorAll('[data-attr]')) {
+                      const attr = el.getAttribute('data-attr')
+                      const [prop, key] = attr.split(':')
+                      if (data[key] != null) el[prop] = data[key]
+                    }
+                    tbody.appendChild(row)
+                  }
+                }
+              }
+            </script>
           </table>
         </div>
       </fieldset>
-      <fieldset>
-        <legend>作業一覧</legend>
+      <fieldset style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; flex: 1; min-width: 0;">
+        <legend>変更内容一覧
+          <dm-sdwan-load-button url="/template/device"><span slot="title">SD-WAN</span></dm-sdwan-load-button>
+          <dm-preview-button target="editor" language="json"></dm-preview-button>
+          <dm-load-button><span slot="title">CatC</span></dm-load-button>
+          <dm-preview-button target="editor" language="json"></dm-preview-button>
+        </legend>
+        <div style="overflow: auto; flex: 1; min-height: 0;">
+          <table>
+            <thead style="position: sticky; top: 0;">
+              <tr>
+                <td>Hostname</td>
+                <td>Device Status</td>
+                <td>Mode</td>
+                <td>Local Configuration</td>
+                <td>Device Template</td>
+                <td>CLI Add-On Template</td>
+              </tr>
+            </thead>
+            <tbody>
+              <template>
+                <tr data-bind>
+                  <td data-text="host-name"></td>
+                  <td data-text="configStatusMessage"></td>
+                  <td data-text="configOperationMode"></td>
+                </tr>
+              </template>
+            </tbody>
+            <script>
+              {
+                const table = document.currentScript.parentElement
+                const tbody = table.tBodies[0]
+                const template = tbody.querySelector('template')
+                const vedges = document.getElementById('vedges')
+                const textFilter = document.getElementById('text-filter')
+                vedges.addEventListener('change', reload)
+                textFilter.addEventListener('change', reload)
+
+                function reload() {
+                  tbody.replaceChildren()
+                  let items = vedges.raw?.data
+                  if (textFilter.value) {
+                    const regex = new RegExp(textFilter.value)
+                    items = items?.filter(v => regex.test(JSON.stringify(v))) ?? []
+                  }
+                  for (const data of items) {
+                    const row = template.content.cloneNode(true)
+                    for (const el of row.querySelectorAll('[data-bind]')) el.data = data
+                    for (const el of row.querySelectorAll('[data-text]')) {
+                      const key = el.getAttribute('data-text')
+                      if (data[key] != null) el.textContent = data[key]
+                    }
+                    for (const el of row.querySelectorAll('[data-attr]')) {
+                      const attr = el.getAttribute('data-attr')
+                      const [prop, key] = attr.split(':')
+                      if (data[key] != null) el[prop] = data[key]
+                    }
+                    tbody.appendChild(row)
+                  }
+                }
+              }
+            </script>
+          </table>
+        </div>
       </fieldset>
     </div>
 
