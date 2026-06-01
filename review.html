@@ -18,6 +18,23 @@
     table tfoot {
       background-color: canvas;
     }
+
+
+    .side-by-side {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .full-height {
+      height: 100%;
+      min-height: 0;
+    }
+
+    .scrollable {
+      overflow: auto;
+      min-width: 0;
+      min-height: 0;
+    }
   </style>
   <script src="js/dm-sdwan.js"></script>
   <script src="js/dm-catc.js"></script>
@@ -61,16 +78,16 @@
       </fieldset>
     </div>
 
-    <div style="min-height: 0; display: flex;">
-      <fieldset style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; flex: 1; min-width: 0;">
+    <div class="side-by-side full-height">
+      <fieldset
+        style="display: flex; flex-direction: column; box-sizing: border-box; flex: 1; min-width: 0; min-height: 0;">
         <legend>関連機器一覧
-          <dm-sdwan-load-button id="vedges" url="/system/device/vedges"><span
-              slot="title">SD-WAN</span></dm-sdwan-load-button>
+          <dm-sdwan-load-button url="/system/device/vedges"><span slot="title">SD-WAN</span></dm-sdwan-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
           <dm-load-button><span slot="title">CatC</span></dm-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
         </legend>
-        <div style="overflow: auto; flex: 1; min-height: 0; min-width: 0;">
+        <div class="scrollable" style="flex: 1;">
           <table id="effective-devices">
             <thead style="position: sticky; top: 0;">
               <tr>
@@ -157,7 +174,7 @@
                 const table = document.currentScript.parentElement
                 const tbody = table.tBodies[0]
                 const template = tbody.querySelector('template')
-                const vedges = document.getElementById('vedges')
+                const vedges = document.querySelector('dm-sdwan-load-button[url="/system/device/vedges"]')
                 const textFilter = document.getElementById('text-filter')
                 vedges.addEventListener('change', reload)
                 textFilter.addEventListener('change', reload)
@@ -189,14 +206,15 @@
           </table>
         </div>
       </fieldset>
-      <fieldset style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; flex: 1; min-width: 0;">
+      <fieldset
+        style="display: flex; flex-direction: column; box-sizing: border-box; flex: 1; min-width: 0; min-height: 0;">
         <legend>変更内容一覧
           <dm-sdwan-load-button url="/template/device"><span slot="title">SD-WAN</span></dm-sdwan-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
           <dm-load-button><span slot="title">CatC</span></dm-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
         </legend>
-        <div style="overflow: auto; flex: 1; min-height: 0;">
+        <div class="scrollable" style="flex: 1;">
           <table>
             <thead style="position: sticky; top: 0;">
               <tr>
@@ -222,7 +240,7 @@
                 const table = document.currentScript.parentElement
                 const tbody = table.tBodies[0]
                 const template = tbody.querySelector('template')
-                const vedges = document.getElementById('vedges')
+                const vedges = document.querySelector('dm-sdwan-load-button[url="/template/device"]')
                 const textFilter = document.getElementById('text-filter')
                 vedges.addEventListener('change', reload)
                 textFilter.addEventListener('change', reload)
