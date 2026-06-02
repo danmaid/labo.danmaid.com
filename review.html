@@ -185,25 +185,6 @@
                   <td></td>
                   <td></td>
                 </tr>
-                <script>
-                  {
-                    const row = document.currentScript.previousElementSibling
-                    row.addEventListener('change', () => {
-                      const data = row.data
-                      if (!data) return
-                      for (const el of row.querySelectorAll('[data-bind]')) el.data = data
-                      for (const el of row.querySelectorAll('[data-text]')) {
-                        const key = el.getAttribute('data-text')
-                        if (data[key] != null) el.textContent = data[key]
-                      }
-                      for (const el of row.querySelectorAll('[data-attr]')) {
-                        const attr = el.getAttribute('data-attr')
-                        const [prop, key] = attr.split(':')
-                        if (data[key] != null) el[prop] = data[key]
-                      }
-                    })
-                  }
-                </script>
               </template>
             </tbody>
             <script>
@@ -215,17 +196,20 @@
                 const vedges = document.querySelector('dm-sdwan-load-button[url="/system/device/vedges"]')
                 const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/network-device"]')
                 const textFilter = document.getElementById('text-filter')
-                vedges.addEventListener('change', reload)
-                catc.addEventListener('change', () => {
-                  const keyFn = v => v
+                vedges.addEventListener('change', () => render(tbody, vedges.raw?.data, template, v => v.uuid))
+                catc.addEventListener('change', () => render(tbody, catc.raw?.response, catcTemplate))
+
+                // textFilter.addEventListener('change', reload)
+
+                function render(tbody, items, template, keyFn = v => v) {
                   const map = new Map()
-                  for (const data of tbody.rows) map.set(keyFn(data), data)
-                  for (const data of catc.raw?.response ?? []) {
+                  for (const el of tbody.rows) el.data && map.set(keyFn(el.data), el)
+                  for (const data of items ?? []) {
                     const key = keyFn(data)
                     let el = map.get(key)
                     if (!el) {
                       // insert
-                      const row = catcTemplate.content.cloneNode(true)
+                      const row = template.content.cloneNode(true)
                       el = row.querySelector('tr[data-bind]')
                       el.data = data
                       el.addEventListener('change', function () {
@@ -250,31 +234,6 @@
                       el.data = data
                       el.dispatchEvent(new Event('change'))
                     }
-                  }
-                })
-
-                textFilter.addEventListener('change', reload)
-
-                function reload() {
-                  tbody.replaceChildren()
-                  let items = vedges.raw?.data
-                  if (textFilter.value) {
-                    const regex = new RegExp(textFilter.value)
-                    items = items?.filter(v => regex.test(JSON.stringify(v))) ?? []
-                  }
-                  for (const data of items) {
-                    const row = template.content.cloneNode(true)
-                    for (const el of row.querySelectorAll('[data-bind]')) el.data = data
-                    for (const el of row.querySelectorAll('[data-text]')) {
-                      const key = el.getAttribute('data-text')
-                      if (data[key] != null) el.textContent = data[key]
-                    }
-                    for (const el of row.querySelectorAll('[data-attr]')) {
-                      const attr = el.getAttribute('data-attr')
-                      const [prop, key] = attr.split(':')
-                      if (data[key] != null) el[prop] = data[key]
-                    }
-                    tbody.appendChild(row)
                   }
                 }
               }
