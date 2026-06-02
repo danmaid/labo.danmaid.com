@@ -30,7 +30,10 @@ customElements.define('dm-preview-button', class DmPreviewButton extends HTMLEle
   }
 
   connectedCallback() {
-    this.src = this.parentElement.querySelector('dm-sdwan-load-button')
+    const query = this.getAttribute('for')
+    this.src = query
+      ? document.querySelector(query)
+      : this.parentElement.querySelector('dm-sdwan-load-button')
     this.src.addEventListener('change', () => {
       this.src.raw ? this.button.disabled = false : this.button.disabled = true
     })
