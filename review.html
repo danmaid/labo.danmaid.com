@@ -19,17 +19,6 @@
       background-color: canvas;
     }
 
-
-    .side-by-side {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .full-height {
-      height: 100%;
-      min-height: 0;
-    }
-
     .scrollable {
       overflow: auto;
       min-width: 0;
@@ -45,6 +34,15 @@
     })
     customElements.define('dm-catc-load-button', class extends DmLoadButton {
       async fetch() { return catc.fetch(this.url).then(r => r.json()) }
+    })
+    customElements.define('dm-catc-tags-load-button', class extends DmLoadButton {
+      async fetch() {
+        return catc.fetch(this.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [this.data.id] })
+        }).then(r => r.json())
+      }
     })
   </script>
   <script src="js/dm-data-row.js"></script>
@@ -82,22 +80,26 @@
       </fieldset>
     </div>
 
-    <div class="side-by-side full-height">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 0.5fr; height: 100%; min-height: 0;">
       <fieldset
         style="display: flex; flex-direction: column; box-sizing: border-box; flex: 1; min-width: 0; min-height: 0;">
         <legend>関連機器一覧
           <dm-sdwan-load-button url="/system/device/vedges"><span slot="title">SD-WAN</span></dm-sdwan-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
+          <a href="https://manager.sdwan.danmaid.com/#/app/config/devices/vedge" target="_blank">↗️</a>
           <dm-catc-load-button url="/dna/intent/api/v1/network-device"><span
               slot="title">CatC</span></dm-catc-load-button>
           <dm-preview-button for="dm-catc-load-button[url='/dna/intent/api/v1/network-device']" target="editor"
             language="json"></dm-preview-button>
+          <a href="https://cml29090.danmaid.com/dna/provision/devices/inventory/list" target="_blank">↗️</a>
         </legend>
         <div class="scrollable" style="flex: 1;">
           <table id="effective-devices">
             <thead style="position: sticky; top: 0;">
               <tr>
+                <td></td>
                 <td>Source</td>
+                <td>Tags</td>
                 <td>Hostname</td>
                 <td>Device Status</td>
                 <td>Mode</td>
@@ -110,7 +112,36 @@
               <dm-data-row>
                 <template id="sdwan-device">
                   <tr>
+                    <td>
+                      <button>👀
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const tr = el.closest('tr')
+                            el.addEventListener('click', () => {
+                              const editor = globalThis['editor']
+                              const model = editor?.getModel()
+                              if (!model) return
+                              monaco.editor.setModelLanguage(model, 'json')
+                              model.setValue(JSON.stringify(tr.data, null, 2))
+                            })
+                          }
+                        </script>
+                      </button>
+                    </td>
                     <td>SD-WAN</td>
+                    <td><span>
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const tr = el.closest('tr')
+                            tr.addEventListener('change', () => {
+                              el.textContent = tr.data.tags.map(v => v.name)
+                            })
+                          }
+                        </script>
+                      </span>
+                    </td>
                     <td data-text="host-name"></td>
                     <td data-text="configStatusMessage"></td>
                     <td data-text="configOperationMode"></td>
@@ -179,7 +210,56 @@
                 </template>
                 <template id="catc-device">
                   <tr>
+                    <td>
+                      <button>👀
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const tr = el.closest('tr')
+                            el.addEventListener('click', () => {
+                              const editor = globalThis['editor']
+                              const model = editor?.getModel()
+                              if (!model) return
+                              monaco.editor.setModelLanguage(model, 'json')
+                              model.setValue(JSON.stringify(tr.data, null, 2))
+                            })
+                          }
+                        </script>
+                      </button>
+                    </td>
                     <td>CatC</td>
+                    <td>
+                      <dm-catc-tags-load-button url="/dna/intent/api/v1/tags/networkDevices/membersAssociations/query"
+                        data-bind><span slot="title"></span></dm-catc-tags-load-button>
+                      <span>
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const loader = el.parentElement.querySelector('dm-catc-tags-load-button')
+                            const tr = el.closest('tr')
+                            loader.addEventListener('change', () => {
+                              el.textContent = loader.raw?.response?.[0]?.tags?.map(v => v.name)
+                              tr.data.tags = loader.raw?.response?.[0]?.tags
+                            })
+                          }
+                        </script>
+                      </span>
+                      <button>👀
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const loader = el.parentElement.querySelector('dm-catc-tags-load-button')
+                            el.addEventListener('click', () => {
+                              const editor = globalThis['editor']
+                              const model = editor?.getModel()
+                              if (!model) return
+                              monaco.editor.setModelLanguage(model, 'json')
+                              model.setValue(JSON.stringify(loader.raw, null, 2))
+                            })
+                          }
+                        </script>
+                      </button>
+                    </td>
                     <td data-text="hostname"></td>
                     <td data-text="reachabilityStatus"></td>
                     <td data-text="managementState"></td>
@@ -220,15 +300,18 @@
         <legend>変更内容一覧
           <dm-sdwan-load-button url="/template/device"><span slot="title">SD-WAN</span></dm-sdwan-load-button>
           <dm-preview-button target="editor" language="json"></dm-preview-button>
+          <a href="https://manager.sdwan.danmaid.com/#/app/config/template/device" target="_blank">↗️</a>
           <dm-catc-load-button url="/dna/intent/api/v1/template-programmer/template"><span
               slot="title">CatC</span></dm-catc-load-button>
           <dm-preview-button for="dm-catc-load-button[url='/dna/intent/api/v1/template-programmer/template']"
             target="editor" language="json"></dm-preview-button>
+          <a href="https://cml29090.danmaid.com/dna/design/templatesHub/templateList" target="_blank">↗️</a>
         </legend>
         <div class="scrollable" style="flex: 1;">
           <table id="effective-templates">
             <thead style="position: sticky; top: 0;">
               <tr>
+                <td></td>
                 <td>Source</td>
                 <td>Name</td>
                 <td>in use</td>
@@ -241,6 +324,23 @@
               <dm-data-row>
                 <template id="sdwan-template">
                   <tr>
+                    <td>
+                      <button>👀
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const tr = el.closest('tr')
+                            el.addEventListener('click', () => {
+                              const editor = globalThis['editor']
+                              const model = editor?.getModel()
+                              if (!model) return
+                              monaco.editor.setModelLanguage(model, 'json')
+                              model.setValue(JSON.stringify(tr.data, null, 2))
+                            })
+                          }
+                        </script>
+                      </button>
+                    </td>
                     <td>SD-WAN</td>
                     <td data-text="templateName"></td>
                     <td data-text="devicesAttached"></td>
@@ -251,6 +351,23 @@
                 </template>
                 <template id="catc-template">
                   <tr>
+                    <td>
+                      <button>👀
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const tr = el.closest('tr')
+                            el.addEventListener('click', () => {
+                              const editor = globalThis['editor']
+                              const model = editor?.getModel()
+                              if (!model) return
+                              monaco.editor.setModelLanguage(model, 'json')
+                              model.setValue(JSON.stringify(tr.data, null, 2))
+                            })
+                          }
+                        </script>
+                      </button>
+                    </td>
                     <td>CatC</td>
                     <td data-text="name"></td>
                     <td>-</td>
@@ -284,6 +401,73 @@
               </dm-data-row>
             </tbody>
           </table>
+        </div>
+      </fieldset>
+      <fieldset
+        style="display: flex; flex-direction: column; box-sizing: border-box; flex: 1; min-width: 0; min-height: 0;">
+        <legend>作業項目一覧
+          <dm-catc-load-button url="/api/schedule/v4/scheduled-job/brief?type=ACTIONABLE"><span
+              slot="title">CatC</span></dm-catc-load-button>
+          <dm-preview-button for="dm-catc-load-button[url='/api/schedule/v4/scheduled-job/brief?type=ACTIONABLE']"
+            target="editor" language="json"></dm-preview-button>
+          <a href="https://cml29090.danmaid.com/dna/activity/tasks?type=work-item" target="_blank">↗️</a>
+        </legend>
+        <div class="scrollable" style="flex: 1;">
+          <table id="scheduled-jobs">
+            <thead style="position: sticky; top: 0;">
+              <tr>
+                <td></td>
+                <td>Source</td>
+                <td>Name</td>
+              </tr>
+            </thead>
+            <tbody>
+              <dm-data-row>
+                <template id="catc-template">
+                  <tr>
+                    <td>
+                      <button>👀
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const tr = el.closest('tr')
+                            el.addEventListener('click', () => {
+                              const editor = globalThis['editor']
+                              const model = editor?.getModel()
+                              if (!model) return
+                              monaco.editor.setModelLanguage(model, 'json')
+                              model.setValue(JSON.stringify(tr.data, null, 2))
+                            })
+                          }
+                        </script>
+                      </button>
+                    </td>
+                    <td>CatC</td>
+                    <td data-text="description"></td>
+                  </tr>
+                </template>
+                <script>
+                  {
+                    const dataRow = document.currentScript.parentElement
+                    const tbody = document.querySelector('#scheduled-jobs tbody')
+
+                    const catc = document.querySelector('dm-catc-load-button[url="/api/schedule/v4/scheduled-job/brief?type=ACTIONABLE"]')
+                    catc.addEventListener('change', () =>
+                      dataRow.mergeRows(tbody, catc.raw?.response, 'catc-template', v => v.instanceUuid))
+
+                    const textFilter = document.querySelector('#text-filter')
+                    textFilter.addEventListener('change', () => {
+                      const filter = new RegExp(textFilter.value, 'i')
+                      for (const row of tbody.rows) {
+                        row.style.display = filter.test(JSON.stringify(row.data)) ? '' : 'none'
+                      }
+                    })
+                  }
+                </script>
+              </dm-data-row>
+            </tbody>
+          </table>
+          <div>SD-WANどうすっかなぁ・・・</div>
         </div>
       </fieldset>
     </div>
