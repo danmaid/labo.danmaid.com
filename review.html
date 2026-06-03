@@ -200,6 +200,14 @@
                     const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/network-device"]')
                     catc.addEventListener('change', () =>
                       dataRow.mergeRows(tbody, catc.raw?.response, 'catc-device', v => v.id))
+
+                    const textFilter = document.querySelector('#text-filter')
+                    textFilter.addEventListener('change', () => {
+                      const filter = new RegExp(textFilter.value, 'i')
+                      for (const row of tbody.rows) {
+                        row.style.display = filter.test(JSON.stringify(row.data)) ? '' : 'none'
+                      }
+                    })
                   }
                 </script>
               </dm-data-row>
@@ -263,6 +271,14 @@
                     const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/template-programmer/template"]')
                     catc.addEventListener('change', () =>
                       dataRow.mergeRows(tbody, catc.raw, 'catc-template', v => v.templateId))
+
+                    const textFilter = document.querySelector('#text-filter')
+                    textFilter.addEventListener('change', () => {
+                      const filter = new RegExp(textFilter.value, 'i')
+                      for (const row of tbody.rows) {
+                        row.style.display = filter.test(JSON.stringify(row.data)) ? '' : 'none'
+                      }
+                    })
                   }
                 </script>
               </dm-data-row>
