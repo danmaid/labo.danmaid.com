@@ -47,6 +47,7 @@
       async fetch() { return catc.fetch(this.url).then(r => r.json()) }
     })
   </script>
+  <script src="js/dm-data-row.js"></script>
   <script src="js/dmanage/dm-preview-button.js"></script>
   <script type="module" src="js/dmanage/focus-preview.mjs"></script>
   <script src="vendor/vs/loader.js"></script>
@@ -106,138 +107,103 @@
               </tr>
             </thead>
             <tbody>
-              <template id="sdwan-device">
-                <tr data-bind>
-                  <td>SD-WAN</td>
-                  <td data-text="host-name"></td>
-                  <td data-text="configStatusMessage"></td>
-                  <td data-text="configOperationMode"></td>
-                  <td>
-                    <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS" data-attr="value:uuid"><span
-                        slot="title"></span></dm-sdwan-load-button>
-                    <span>
-                      <script>
-                        {
-                          const el = document.currentScript.parentElement
-                          const loader = el.parentElement.querySelector('dm-sdwan-load-button')
-                          loader.addEventListener('change', () => {
-                            const lines = loader.raw?.config?.split('\n')
-                            el.textContent = /no config/i.test(lines?.[0])
-                              ? lines[0].startsWith('no config') ? lines[0] : ''
-                              : lines.length + ' lines'
-                          })
-                        }
-                      </script>
-                    </span>
-                    <dm-preview-button target="editor" language="json"></dm-preview-button>
-                    <dm-preview-button target="editor" language="plaintext" select="config"></dm-preview-button>
-                  </td>
-                  <td>
-                    <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId"><span
-                        slot="title"></span></dm-sdwan-load-button>
-                    <span>
-                      <script>
-                        {
-                          const el = document.currentScript.parentElement
-                          const loader = el.parentElement.querySelector('dm-sdwan-load-button')
-                          const row = el.closest('tr[data-bind]')
-                          loader.addEventListener('change', () => {
-                            el.textContent = loader.raw?.templateName ?? ''
-                            row.data.cliTemplateId = loader.raw?.generalTemplates?.find(v => v.templateType === 'cli-template')?.templateId
-                            for (const el of row.querySelectorAll('[data-attr]')) {
-                              const attr = el.getAttribute('data-attr')
-                              const [prop, key] = attr.split(':')
-                              if (row.data[key] != null) el[prop] = row.data[key]
-                            }
-                          })
-                        }
-                      </script>
-                    </span>
-                    <dm-preview-button target="editor" language="json"></dm-preview-button>
-                  </td>
-                  <td>
-                    <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId"><span
-                        slot="title"></span></dm-sdwan-load-button>
-                    <span>
-                      <script>
-                        {
-                          const el = document.currentScript.parentElement
-                          const loader = el.parentElement.querySelector('dm-sdwan-load-button')
-                          loader.addEventListener('change', () => {
-                            el.textContent = loader.raw?.templateName ?? ''
-                          })
-                        }
-                      </script>
-                    </span>
-                    <dm-preview-button target="editor" language="json"></dm-preview-button>
-                    <dm-preview-button target="editor" language="plaintext"
-                      select="templateDefinition.config.vipValue"></dm-preview-button>
-                  </td>
-                </tr>
-              </template>
-              <template id="catc-device">
-                <tr data-bind>
-                  <td>CatC</td>
-                  <td data-text="hostname"></td>
-                  <td data-text="reachabilityStatus"></td>
-                  <td data-text="managementState"></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                </tr>
-              </template>
-            </tbody>
-            <script>
-              {
-                const table = document.currentScript.parentElement
-                const tbody = table.tBodies[0]
-                const template = tbody.querySelector('template#sdwan-device')
-                const catcTemplate = document.querySelector('template#catc-device')
-                const vedges = document.querySelector('dm-sdwan-load-button[url="/system/device/vedges"]')
-                const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/network-device"]')
-                const textFilter = document.getElementById('text-filter')
-                vedges.addEventListener('change', () => render(tbody, vedges.raw?.data, template, v => v.uuid))
-                catc.addEventListener('change', () => render(tbody, catc.raw?.response, catcTemplate))
+              <dm-data-row>
+                <template id="sdwan-device">
+                  <tr>
+                    <td>SD-WAN</td>
+                    <td data-text="host-name"></td>
+                    <td data-text="configStatusMessage"></td>
+                    <td data-text="configOperationMode"></td>
+                    <td>
+                      <dm-sdwan-load-button url="/template/config/attached/{value}?type=RFS"
+                        data-attr="value:uuid"><span slot="title"></span></dm-sdwan-load-button>
+                      <span>
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                            loader.addEventListener('change', () => {
+                              const lines = loader.raw?.config?.split('\n')
+                              el.textContent = /no config/i.test(lines?.[0])
+                                ? lines[0].startsWith('no config') ? lines[0] : ''
+                                : lines.length + ' lines'
+                            })
+                          }
+                        </script>
+                      </span>
+                      <dm-preview-button target="editor" language="json"></dm-preview-button>
+                      <dm-preview-button target="editor" language="plaintext" select="config"></dm-preview-button>
+                    </td>
+                    <td>
+                      <dm-sdwan-load-button url="/template/device/object/{value}" data-attr="value:templateId"><span
+                          slot="title"></span></dm-sdwan-load-button>
+                      <span>
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                            const row = el.closest('tr')
+                            loader.addEventListener('change', () => {
+                              el.textContent = loader.raw?.templateName ?? ''
+                              row.data.cliTemplateId = loader.raw?.generalTemplates?.find(v => v.templateType === 'cli-template')?.templateId
+                              for (const el of row.querySelectorAll('[data-attr]')) {
+                                const attr = el.getAttribute('data-attr')
+                                const [prop, key] = attr.split(':')
+                                if (row.data[key] != null) el[prop] = row.data[key]
+                              }
+                            })
+                          }
+                        </script>
+                      </span>
+                      <dm-preview-button target="editor" language="json"></dm-preview-button>
+                    </td>
+                    <td>
+                      <dm-sdwan-load-button url="/template/feature/object/{value}" data-attr="value:cliTemplateId"><span
+                          slot="title"></span></dm-sdwan-load-button>
+                      <span>
+                        <script>
+                          {
+                            const el = document.currentScript.parentElement
+                            const loader = el.parentElement.querySelector('dm-sdwan-load-button')
+                            loader.addEventListener('change', () => {
+                              el.textContent = loader.raw?.templateName ?? ''
+                            })
+                          }
+                        </script>
+                      </span>
+                      <dm-preview-button target="editor" language="json"></dm-preview-button>
+                      <dm-preview-button target="editor" language="plaintext"
+                        select="templateDefinition.config.vipValue"></dm-preview-button>
+                    </td>
+                  </tr>
+                </template>
+                <template id="catc-device">
+                  <tr>
+                    <td>CatC</td>
+                    <td data-text="hostname"></td>
+                    <td data-text="reachabilityStatus"></td>
+                    <td data-text="managementState"></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                </template>
+                <script>
+                  {
+                    const dataRow = document.currentScript.parentElement
+                    const tbody = document.querySelector('#effective-devices tbody')
 
-                // textFilter.addEventListener('change', reload)
+                    const vedges = document.querySelector('dm-sdwan-load-button[url="/system/device/vedges"]')
+                    vedges.addEventListener('change', () =>
+                      dataRow.mergeRows(tbody, vedges.raw?.data, 'sdwan-device', v => v.uuid))
 
-                function render(tbody, items, template, keyFn = v => v) {
-                  const map = new Map()
-                  for (const el of tbody.rows) el.data && map.set(keyFn(el.data), el)
-                  for (const data of items ?? []) {
-                    const key = keyFn(data)
-                    let el = map.get(key)
-                    if (!el) {
-                      // insert
-                      const row = template.content.cloneNode(true)
-                      el = row.querySelector('tr[data-bind]')
-                      el.data = data
-                      el.addEventListener('change', function () {
-                        const data = this.data
-                        if (!data) return
-                        for (const el of this.querySelectorAll('[data-bind]')) el.data = data
-                        for (const el of this.querySelectorAll('[data-text]')) {
-                          const key = el.getAttribute('data-text')
-                          if (data[key] != null) el.textContent = data[key]
-                        }
-                        for (const el of this.querySelectorAll('[data-attr]')) {
-                          const attr = el.getAttribute('data-attr')
-                          const [prop, key] = attr.split(':')
-                          if (data[key] != null) el[prop] = data[key]
-                        }
-                      })
-                      tbody.appendChild(row)
-                      el.dispatchEvent(new Event('change'))
-                      map.set(key, el)
-                    } else {
-                      // update
-                      el.data = data
-                      el.dispatchEvent(new Event('change'))
-                    }
+                    const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/network-device"]')
+                    catc.addEventListener('change', () =>
+                      dataRow.mergeRows(tbody, catc.raw?.response, 'catc-device', v => v.id))
                   }
-                }
-              }
-            </script>
+                </script>
+              </dm-data-row>
+            </tbody>
           </table>
         </div>
       </fieldset>
@@ -252,7 +218,7 @@
             target="editor" language="json"></dm-preview-button>
         </legend>
         <div class="scrollable" style="flex: 1;">
-          <table>
+          <table id="effective-templates">
             <thead style="position: sticky; top: 0;">
               <tr>
                 <td>Source</td>
@@ -264,100 +230,43 @@
               </tr>
             </thead>
             <tbody>
-              <template>
-                <tr data-bind>
-                  <td>SD-WAN</td>
-                  <td data-text="templateName"></td>
-                  <td data-text="devicesAttached"></td>
-                  <td data-text="deviceType"></td>
-                  <td data-text="templateAttached"></td>
-                  <td data-text="templateDescription"></td>
-                </tr>
-              </template>
-              <template id="catc-template">
-                <tr data-bind>
-                  <td>CatC</td>
-                  <td data-text="name"></td>
-                  <td>-</td>
-                  <td>TBD</td>
-                  <td>-</td>
-                  <td></td>
-                </tr>
-              </template>
+              <dm-data-row>
+                <template id="sdwan-template">
+                  <tr>
+                    <td>SD-WAN</td>
+                    <td data-text="templateName"></td>
+                    <td data-text="devicesAttached"></td>
+                    <td data-text="deviceType"></td>
+                    <td data-text="templateAttached"></td>
+                    <td data-text="templateDescription"></td>
+                  </tr>
+                </template>
+                <template id="catc-template">
+                  <tr>
+                    <td>CatC</td>
+                    <td data-text="name"></td>
+                    <td>-</td>
+                    <td>TBD</td>
+                    <td>-</td>
+                    <td></td>
+                  </tr>
+                </template>
+                <script>
+                  {
+                    const dataRow = document.currentScript.parentElement
+                    const tbody = document.querySelector('#effective-templates tbody')
+
+                    const vedges = document.querySelector('dm-sdwan-load-button[url="/template/device"]')
+                    vedges.addEventListener('change', () =>
+                      dataRow.mergeRows(tbody, vedges.raw?.data, 'sdwan-template', v => v.templateId))
+
+                    const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/template-programmer/template"]')
+                    catc.addEventListener('change', () =>
+                      dataRow.mergeRows(tbody, catc.raw, 'catc-template', v => v.templateId))
+                  }
+                </script>
+              </dm-data-row>
             </tbody>
-            <script>
-              {
-                const table = document.currentScript.parentElement
-                const tbody = table.tBodies[0]
-                const template = tbody.querySelector('template')
-                const catcTemplate = document.querySelector('template#catc-template')
-                const vedges = document.querySelector('dm-sdwan-load-button[url="/template/device"]')
-                const catc = document.querySelector('dm-catc-load-button[url="/dna/intent/api/v1/template-programmer/template"]')
-                const textFilter = document.getElementById('text-filter')
-                vedges.addEventListener('change', reload)
-                catc.addEventListener('change', () => {
-                  const keyFn = v => v
-                  const map = new Map()
-                  for (const data of tbody.rows) map.set(keyFn(data), data)
-                  for (const data of catc.raw ?? []) {
-                    const key = keyFn(data)
-                    let el = map.get(key)
-                    if (!el) {
-                      // insert
-                      const row = catcTemplate.content.cloneNode(true)
-                      el = row.querySelector('tr[data-bind]')
-                      el.data = data
-                      el.addEventListener('change', function () {
-                        const data = this.data
-                        if (!data) return
-                        for (const el of this.querySelectorAll('[data-bind]')) el.data = data
-                        for (const el of this.querySelectorAll('[data-text]')) {
-                          const key = el.getAttribute('data-text')
-                          if (data[key] != null) el.textContent = data[key]
-                        }
-                        for (const el of this.querySelectorAll('[data-attr]')) {
-                          const attr = el.getAttribute('data-attr')
-                          const [prop, key] = attr.split(':')
-                          if (data[key] != null) el[prop] = data[key]
-                        }
-                      })
-                      tbody.appendChild(row)
-                      el.dispatchEvent(new Event('change'))
-                      map.set(key, el)
-                    } else {
-                      // update
-                      el.data = data
-                      el.dispatchEvent(new Event('change'))
-                    }
-                  }
-                })
-
-                textFilter.addEventListener('change', reload)
-
-                function reload() {
-                  tbody.replaceChildren()
-                  let items = vedges.raw?.data
-                  if (textFilter.value) {
-                    const regex = new RegExp(textFilter.value)
-                    items = items?.filter(v => regex.test(JSON.stringify(v))) ?? []
-                  }
-                  for (const data of items) {
-                    const row = template.content.cloneNode(true)
-                    for (const el of row.querySelectorAll('[data-bind]')) el.data = data
-                    for (const el of row.querySelectorAll('[data-text]')) {
-                      const key = el.getAttribute('data-text')
-                      if (data[key] != null) el.textContent = data[key]
-                    }
-                    for (const el of row.querySelectorAll('[data-attr]')) {
-                      const attr = el.getAttribute('data-attr')
-                      const [prop, key] = attr.split(':')
-                      if (data[key] != null) el[prop] = data[key]
-                    }
-                    tbody.appendChild(row)
-                  }
-                }
-              }
-            </script>
           </table>
         </div>
       </fieldset>
