@@ -2,6 +2,20 @@
 
 <head>
   <base target="_blank">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+  </style>
+  <script src="js/dm-sdwan.js"></script>
+  <script src="js/dm-data-row.js"></script>
+  <script src="js/dm-load-button.js"></script>
+  <script>
+    customElements.define('dm-sdwan-load-button', class extends DmLoadButton {
+      async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
+      attributeChangedCallback() { }
+    })
+  </script>
 </head>
 
 <body>
@@ -10,6 +24,55 @@
     <li><a href="https://[2400:4052:2962:5ed0::fd10:102]/">SD-WAN Manager</a></li>
     <li><a href="https://[2400:4052:2962:5e00::2]/lab/4b239742-a270-426d-98bc-1f5c4f27e76e">Workbench</a></li>
   </ul>
+  <fieldset>
+    <div>
+      <legend>SD-WAN</legend>
+      <dm-sdwan id="sdwan"></dm-sdwan>
+    </div>
+    <div>
+      <input type="text" placeholder="system-ip" value="11.1.0.2">
+      <dm-sdwan-load-button url="/device/omp/routes/received?deviceId={value}"></dm-sdwan-load-button>
+      <table>
+        <thead>
+          <tr>
+            <th>VPN</th>
+            <th>Prefix</th>
+            <th>Next Hop</th>
+            <th>Originator</th>
+            <th>Color</th>
+          </tr>
+        </thead>
+        <tbody>
+          <dm-data-row>
+            <template id="omp-route">
+              <tr>
+                <td data-text="vpn-id"></td>
+                <td data-text="prefix"></td>
+                <td data-text="ip"></td>
+                <td data-text="originator"></td>
+                <td data-text="color"></td>
+              </tr>
+            </template>
+          </dm-data-row>
+        </tbody>
+      </table>
+      <script>
+        {
+          const group = document.currentScript.parentElement
+          const loader = group.querySelector('dm-sdwan-load-button')
+          const input = group.querySelector('input')
+          const dataRow = group.querySelector('dm-data-row')
+          const tbody = group.querySelector('tbody')
+          input.addEventListener('change', () => loader.setAttribute('value', input.value))
+          loader.addEventListener('change', () =>
+            dataRow.mergeRows(tbody, loader.raw?.data, 'omp-route', v => v.prefix))
+
+          input.dispatchEvent(new Event('change'))
+        }
+      </script>
+    </div>
+  </fieldset>
+
 </body>
 
 </html>

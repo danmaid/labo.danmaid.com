@@ -1,0 +1,6 @@
+{
+  "name": "nginx-dev",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/workspace"
+}

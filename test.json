@@ -158,6 +158,22 @@
     ]
   },
   {
+    "title": "Catalyst Center v4",
+    "addresses": [
+      {
+        "family": "IPv4",
+        "address": "192.168.1.211"
+      }
+    ],
+    "listeners": [
+      {
+        "service": "web",
+        "port": 443,
+        "protocol": "https"
+      }
+    ]
+  },
+  {
     "title": "C3750X",
     "hostname": "C3750X",
     "addresses": [
