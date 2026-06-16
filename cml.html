@@ -31,51 +31,63 @@
 </head>
 
 <body class="full-screen">
-  <div id="overlay">
+  <div>
     <dm-window>
       <dm-terminal io="ws://localhost:8080/ssh"></dm-terminal>
     </dm-window>
   </div>
   <script type="module">
-    import { Terminal } from "./vendor/xterm/xterm.mjs"
-    import { FitAddon } from "./vendor/xterm/addon-fit.mjs"
-    const cssUrl = "./vendor/xterm/xterm.css"
-    const cssText = await fetch(cssUrl).then(r => r.text())
-    const xtermCss = new CSSStyleSheet()
-    await xtermCss.replace(cssText)
-
-    const defaultCss = new CSSStyleSheet()
-    await defaultCss.insertRule(`
-      :host, .container {
+    import { Terminal } from './vendor/xterm/xterm.mjs'
+    import { FitAddon } from './vendor/xterm/addon-fit.mjs'
+    const cssText = await fetch('./vendor/xterm/xterm.css').then(r => r.text())
+    const css = new CSSStyleSheet()
+    await css.replace(cssText)
+    await css.insertRule(`
+      :host {
         display: block;
         width: 100%;
         height: 100%;
       }`)
-
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, xtermCss]
 
     class DmTerminal extends HTMLElement {
       xterm = new Terminal()
       constructor() {
         super()
         const shadow = this.attachShadow({ mode: 'open' })
-        shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, xtermCss, defaultCss]
-        this.style.display = 'block'
-        this.style.width = '100%'
-        this.style.height = '100%'
+        shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, css]
         const fit = new FitAddon()
+        this.fit = fit
         this.xterm.loadAddon(fit)
         this.xterm.open(this)
+        // 80x24 に必要なピクセルサイズを取得
+        console.log({ xterm: this.xterm })
+        const core = this.xterm._core
+        console.log({ core })
+        const dims = core._renderService.dimensions
+        console.log({ dims })
+
+        const cw = dims.actualCellWidth
+        const ch = dims.actualCellHeight
+        console.log({ cw, ch })
+        // // Element のサイズを調整
+        // const el = document.getElementById('terminal')
+        // el.style.width = dims.width + 'px'
+        // el.style.height = dims.height + 'px'
+
+        // その後、fit() で反映
         fit.fit()
 
         new ResizeObserver(() => fit.fit()).observe(this)
-        requestAnimationFrame(() => {
-          console.log('rAF')
-        })
-        console.log('constructor')
       }
       connectedCallback() {
-        console.log('connected')
+        const core = this.xterm._core
+        console.log('cc', { core })
+        const dims = core._renderService.dimensions
+        console.log('cc', { dims })
+
+        const cw = dims.actualCellWidth
+        const ch = dims.actualCellHeight
+        console.log('cc', { cw, ch })
       }
     }
     customElements.define('dm-terminal', DmTerminal)
