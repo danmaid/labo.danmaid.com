@@ -1,6 +1,7 @@
-<html>
+<html lang="ja">
 
 <head>
+  <meta charset="UTF-8">
   <base target="_blank">
   <style>
     :root {
@@ -10,69 +11,246 @@
   <script src="js/dm-sdwan.js"></script>
   <script src="js/dm-data-row.js"></script>
   <script src="js/dm-load-button.js"></script>
+  <script src="vendor/vs/loader.js"></script>
   <script>
     customElements.define('dm-sdwan-load-button', class extends DmLoadButton {
       async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
       attributeChangedCallback() { }
     })
+
+    function dispatchAction(type, payload = {}) {
+      const id = new Date().getTime()
+      const timestamp = new Date().toLocaleString()
+      document.dispatchEvent(new CustomEvent(type, {
+        detail: { id, timestamp, ...payload },
+        bubbles: true
+      }))
+      return id
+    }
   </script>
 </head>
 
-<body>
-  <ul>
-    <li><a href="https://[2400:4052:2962:5ed0::fd10:101]/">Catalyst Center for IPv4</a></li>
-    <li><a href="https://[2400:4052:2962:5ed0::fd10:102]/">SD-WAN Manager</a></li>
-    <li><a href="https://[2400:4052:2962:5e00::2]/lab/4b239742-a270-426d-98bc-1f5c4f27e76e">Workbench</a></li>
-  </ul>
-  <fieldset>
-    <div>
-      <legend>SD-WAN</legend>
-      <dm-sdwan id="sdwan"></dm-sdwan>
-    </div>
-    <div>
-      <input type="text" placeholder="system-ip" value="11.1.0.2">
-      <dm-sdwan-load-button url="/device/omp/routes/received?deviceId={value}"></dm-sdwan-load-button>
-      <table>
-        <thead>
-          <tr>
-            <th>VPN</th>
-            <th>Prefix</th>
-            <th>Next Hop</th>
-            <th>Originator</th>
-            <th>Color</th>
-          </tr>
-        </thead>
-        <tbody>
-          <dm-data-row>
-            <template id="omp-route">
-              <tr>
-                <td data-text="vpn-id"></td>
-                <td data-text="prefix"></td>
-                <td data-text="ip"></td>
-                <td data-text="originator"></td>
-                <td data-text="color"></td>
-              </tr>
-            </template>
-          </dm-data-row>
-        </tbody>
-      </table>
-      <script>
-        {
-          const group = document.currentScript.parentElement
-          const loader = group.querySelector('dm-sdwan-load-button')
-          const input = group.querySelector('input')
-          const dataRow = group.querySelector('dm-data-row')
-          const tbody = group.querySelector('tbody')
-          input.addEventListener('change', () => loader.setAttribute('value', input.value))
-          loader.addEventListener('change', () =>
-            dataRow.mergeRows(tbody, loader.raw?.data, 'omp-route', v => v.prefix))
+<body style="height: 100%; margin: 0;
+  display: grid; grid-template-columns: 1fr 200px; grid-template-rows: 100%; gap: 8px;
+  padding: 8px; box-sizing: border-box;">
+  <div style="overflow: auto; display: flex; flex-direction: column;">
+    <ul>
+      <li><a href="https://[2400:4052:2962:5ed0::fd10:101]/">Catalyst Center for IPv4</a></li>
+      <li><a href="https://[2400:4052:2962:5ed0::fd10:102]/">SD-WAN Manager</a></li>
+      <li><a href="https://[2400:4052:2962:5e00::2]/lab/4b239742-a270-426d-98bc-1f5c4f27e76e">Workbench</a></li>
+    </ul>
+    <fieldset>
+      <div>
+        <legend>SD-WAN</legend>
+        <dm-sdwan id="sdwan"></dm-sdwan>
+      </div>
+      <div>
+        <input type="text" placeholder="system-ip" value="11.1.0.2">
+        <dm-sdwan-load-button url="/device/omp/routes/received?deviceId={value}"></dm-sdwan-load-button>
+        <script>
+          {
+            const sdwan = document.currentScript.previousElementSibling
+            sdwan.addEventListener('change', () => {
+              if (!sdwan.raw) return
+              dispatchAction('received', {
+                title: sdwan.url,
+                raw: sdwan.raw,
+                received: new Date().toLocaleString(),
+                generated: new Date(sdwan.raw?.header?.generatedOn).toLocaleString() || null,
+              })
+            })
+          }
+        </script>
+        <table>
+          <thead>
+            <tr>
+              <th>VPN</th>
+              <th>Prefix</th>
+              <th>Next Hop</th>
+              <th>Originator</th>
+              <th>Color</th>
+            </tr>
+          </thead>
+          <tbody>
+            <dm-data-row>
+              <template id="omp-route">
+                <tr>
+                  <td data-text="vpn-id"></td>
+                  <td data-text="prefix"></td>
+                  <td data-text="ip"></td>
+                  <td data-text="originator"></td>
+                  <td data-text="color"></td>
+                </tr>
+              </template>
+            </dm-data-row>
+          </tbody>
+        </table>
+        <script>
+          {
+            const group = document.currentScript.parentElement
+            const loader = group.querySelector('dm-sdwan-load-button')
+            const input = group.querySelector('input')
+            const dataRow = group.querySelector('dm-data-row')
+            const tbody = group.querySelector('tbody')
+            input.addEventListener('change', () => loader.setAttribute('value', input.value))
+            loader.addEventListener('change', () =>
+              dataRow.mergeRows(tbody, loader.raw?.data, 'omp-route', v => v.prefix))
 
-          input.dispatchEvent(new Event('change'))
+            input.dispatchEvent(new Event('change'))
+          }
+        </script>
+      </div>
+    </fieldset>
+    <fieldset style="flex: 1 1 100%; box-sizing: border-box; position: relative;">
+      <legend>プレビュー</legend>
+      <style>
+        .hidden {
+          opacity: 0;
+          pointer-events: none;
         }
-      </script>
-    </div>
-  </fieldset>
+      </style>
+      <div id="editor" style="height: 100%; position: absolute; inset: 0;"></div>
+      <div id="diff-editor" class="hidden" style="height: 100%; position: absolute; inset: 0;"></div>
+      <script>
+        require.config({ paths: { vs: "vendor/vs" } })
+        require(["vs/editor/editor.main"], function () {
+          const editorElement = document.getElementById("editor")
+          editorElement.editor = monaco.editor.create(editorElement, {
+            theme: "vs-dark",
+            automaticLayout: true,
+            tabSize: 2,
+            insertSpaces: true,
+            readOnly: true,
+          })
+          const dataMap = new Map()
+          editorElement.setData = function (key, args = {}) {
+            this.saveViewState()
+            this.data = key
+            let options = dataMap.get(key)
+            if (!options) options = {}; dataMap.set(key, options)
+            Object.assign(options, args)
+            if (!options.data) options.data = key.value
+            if (!options.model) options.model = monaco.editor.createModel(options.data)
+            if (options.language) monaco.editor.setModelLanguage(options.model, options.language)
+            this.editor.setModel(options.model)
+            if (options.viewState) this.editor.restoreViewState(options.viewState)
+          }
+          editorElement.saveViewState = function () {
+            if (!this.data) return
+            let options = dataMap.get(this.data)
+            if (!options) options = {}; dataMap.set(this.data, options)
+            options.viewState = this.editor.saveViewState()
+          }
 
+          const diffEditorElement = document.getElementById("diff-editor")
+          diffEditorElement.diffEditor = monaco.editor.createDiffEditor(diffEditorElement, {
+            theme: "vs-dark",
+            automaticLayout: true,
+            tabSize: 2,
+            insertSpaces: true,
+            readOnly: true,
+          })
+          diffEditorElement.setData = function (src, target) {
+            const a = dataMap.get(src)
+            const b = dataMap.get(target)
+            console.log(a, b)
+          }
+        })
+      </script>
+    </fieldset>
+  </div>
+  <aside style="overflow: auto;">
+    log
+    <template id="data">
+      <div data-bind style="border: 1px solid; cursor: pointer;">
+        <div data-text="id"></div>
+        <div data-text="title"></div>
+        <div data-text="received"></div>
+        <div data-text="generated"></div>
+        <button>比較
+          <script>
+            {
+              const editor = document.getElementById('editor')
+              const diffEditor = document.getElementById('diff-editor')
+              document.currentScript.parentElement.addEventListener('click', function (ev) {
+                ev.stopPropagation()
+                dispatchAction('diff', {
+                  original: editor.data,
+                  modified: this.closest('[data-bind]')
+                })
+              })
+            }
+          </script>
+        </button>
+        <script>
+          {
+            const editor = document.getElementById('editor')
+            document.currentScript.parentElement.addEventListener('click', function () {
+              editor.setData(this, { language: 'json' })
+            })
+          }
+        </script>
+      </div>
+    </template>
+    <script>
+      {
+        // 受信データの表示
+        const parent = document.currentScript.parentElement
+        const template = parent.querySelector('#data')
+        document.addEventListener('received', (ev) => {
+          console.log('received', ev.detail)
+          const data = ev.detail
+          const fragment = template.content.cloneNode(true)
+          const first = fragment.firstElementChild
+          first.data = data
+          first.value = JSON.stringify(data.raw, null, 2)
+          first.classList.add('data')
+          for (const el of fragment.querySelectorAll('[data-text]')) {
+            const key = el.getAttribute('data-text')
+            el.textContent = data[key]
+          }
+          parent.appendChild(fragment)
+        })
+      }
+    </script>
+    <template id="diff">
+      <div data-bind style="border: 1px solid; cursor: pointer;">
+        <div>比較</div>
+        <div data-text="timestamp"></div>
+        <script>
+          {
+            const editor = document.getElementById('editor')
+            const parent = document.currentScript.parentElement
+            parent.addEventListener('click', function () {
+              console.log('diff click', this.data)
+            })
+            parent.click()
+          }
+        </script>
+      </div>
+    </template>
+    <script>
+      {
+        // 比較アクションの表示
+        const parent = document.currentScript.parentElement
+        const template = parent.querySelector('#diff')
+        document.addEventListener('diff', (ev) => {
+          console.log('diff', ev.detail)
+          const data = ev.detail
+          const fragment = template.content.cloneNode(true)
+          const first = fragment.firstElementChild
+          first.data = data
+          first.original = data.original
+          first.modified = data.modified
+          for (const el of fragment.querySelectorAll('[data-text]')) {
+            const key = el.getAttribute('data-text')
+            el.textContent = data[key]
+          }
+          parent.appendChild(fragment)
+        })
+      }
+    </script>
+  </aside>
 </body>
 
 </html>
