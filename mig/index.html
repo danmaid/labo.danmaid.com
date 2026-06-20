@@ -79,33 +79,34 @@
         }
       </style>
       <monaco-editor id="editor" style="height: 100%; position: absolute; inset: 0; display: block;"></monaco-editor>
-      <monaco-diff-editor id="diff-editor" class="hidden" style="height: 100%; position: absolute; inset: 0;"></monaco-diff-editor>
+      <monaco-diff-editor id="diff-editor" class="hidden"
+        style="height: 100%; position: absolute; inset: 0;"></monaco-diff-editor>
       <script>
         require.config({ paths: { vs: "vendor/vs" } })
         require(["vs/editor/editor.main"], function () {
           const editorElement = document.getElementById("editor")
           const dataMap = new Map()
-          editorElement.setData = function (key, args = {}) {
-            document.getElementById('diff-editor').classList.add('hidden')
-            this.saveViewState()
-            this.data = key
-            let options = dataMap.get(key)
-            if (!options) options = {}; dataMap.set(key, options)
-            Object.assign(options, args)
-            if (!options.data) options.data = key.value
-            if (!options.model) options.model = monaco.editor.createModel(options.data)
-            if (options.language) monaco.editor.setModelLanguage(options.model, options.language)
-            this.editor.setModel(options.model)
-            if (options.viewState) this.editor.restoreViewState(options.viewState)
-            this.classList.remove('hidden')
-            return options
-          }
-          editorElement.saveViewState = function () {
-            if (!this.data) return
-            let options = dataMap.get(this.data)
-            if (!options) options = {}; dataMap.set(this.data, options)
-            options.viewState = this.editor.saveViewState()
-          }
+          // editorElement.setData = function (key, args = {}) {
+          //   document.getElementById('diff-editor').classList.add('hidden')
+          //   this.saveViewState()
+          //   this.data = key
+          //   let options = dataMap.get(key)
+          //   if (!options) options = {}; dataMap.set(key, options)
+          //   Object.assign(options, args)
+          //   if (!options.data) options.data = key.value
+          //   if (!options.model) options.model = monaco.editor.createModel(options.data)
+          //   if (options.language) monaco.editor.setModelLanguage(options.model, options.language)
+          //   this.editor.setModel(options.model)
+          //   if (options.viewState) this.editor.restoreViewState(options.viewState)
+          //   this.classList.remove('hidden')
+          //   return options
+          // }
+          // editorElement.saveViewState = function () {
+          //   if (!this.data) return
+          //   let options = dataMap.get(this.data)
+          //   if (!options) options = {}; dataMap.set(this.data, options)
+          //   options.viewState = this.editor.saveViewState()
+          // }
 
           const diffEditorElement = document.getElementById("diff-editor")
           diffEditorElement.setData = function (left, right) {
@@ -142,7 +143,7 @@
               document.currentScript.parentElement.addEventListener('click', function (ev) {
                 ev.stopPropagation()
                 dispatchAction('diff', {
-                  original: editor.data,
+                  original: document.querySelector('[data-monaco].selected'),
                   modified: this.closest('[data-bind]')
                 })
               })
@@ -156,7 +157,10 @@
             parent.addEventListener('click', function () {
               for (const sibling of this.parentElement.children) sibling.classList.remove('selected')
               this.classList.add('selected')
-              editor.setData(this, { language: 'json' })
+              this.dataset.monaco = crypto.randomUUID()
+              this.value = JSON.stringify(this.data.raw, null, 2)
+              editor.setAttribute('target', `[data-monaco="${this.dataset.monaco}"]`)
+              // editor.setData(this, { language: 'json' })
             })
             parent.click()
           }
@@ -191,12 +195,14 @@
         <div data-text="timestamp"></div>
         <script>
           {
-            const diffEditor = document.getElementById('diff-editor')
+            const editor = document.getElementById('editor')
             const parent = document.currentScript.parentElement
             parent.addEventListener('click', function () {
               for (const sibling of this.parentElement.children) sibling.classList.remove('selected')
               this.classList.add('selected')
-              diffEditor.setData(this.original, this.modified)
+              this.dataset.monaco = crypto.randomUUID()
+              this.value = JSON.stringify(this.data.raw, null, 2)
+              editor.setAttribute('diff', `[data-monaco="${this.dataset.monaco}"]`)
             })
             parent.click()
           }

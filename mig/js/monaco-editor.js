@@ -1,5 +1,6 @@
 // 共通
 class MonacoElement extends HTMLElement {
+  static config = Symbol('config')
   static ready = new Promise((r) => globalThis.require(['vs/editor/editor.main'], r))
 
   editorReady
@@ -21,7 +22,8 @@ class MonacoElement extends HTMLElement {
  * <script>require.config({ paths: { vs: "vendor/vs" } })</script>
  * <script src="js/monaco-editor.js"></script>
  * 
- * <monaco-editor></monaco-editor>
+ * <monaco-editor target="#xxx"></monaco-editor>
+ * <monaco-editor target="#xxx" diff="#yyy"></monaco-editor>
  * <monaco-editor language="json"></monaco-editor>
  */
 customElements.define("monaco-editor", class MonacoEditor extends MonacoElement {
@@ -34,10 +36,33 @@ customElements.define("monaco-editor", class MonacoEditor extends MonacoElement 
     })
   }
 
-  static observedAttributes = ["language"]
+  static observedAttributes = ['language', 'target', 'diff']
   async attributeChangedCallback(name, oldValue, newValue) {
     await this.editorReady
-    monaco.editor.setModelLanguage(this.editor.getModel(), newValue)
+    if (name === 'language') {
+      monaco.editor.setModelLanguage(this.editor.getModel(), newValue)
+      return
+    }
+    if (name === 'target') {
+      const target = document.querySelector(newValue)
+      if (!target) throw Error(`Target element not found: ${newValue}`)
+      let config = target[MonacoElement.config]
+      if (!config) config = target[MonacoElement.config] = {}
+      let language = config.language
+      let model = config.model
+      if (!model) model = config.model = monaco.editor.createModel(target.value, language)
+      if (!language) language = config.language = model.getLanguageId()
+      this.editor.setModel(model)
+
+      let viewState = config.viewState
+      if (viewState) this.editor.restoreViewState(viewState)
+      this.editor.focus()
+      return
+    }
+    if (name === 'diff') {
+      console.log('diff attribute changed:', newValue)
+      return
+    }
   }
 
   get value() { return this.editor?.getValue() ?? "" }
