@@ -12,6 +12,8 @@
   <script src="js/dm-data-row.js"></script>
   <script src="js/dm-load-button.js"></script>
   <script src="vendor/vs/loader.js"></script>
+  <script>require.config({ paths: { vs: "vendor/vs" } })</script>
+  <script src="js/monaco-editor.js"></script>
   <script>
     customElements.define('dm-sdwan-load-button', class extends DmLoadButton {
       async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
@@ -76,19 +78,12 @@
           pointer-events: none;
         }
       </style>
-      <div id="editor" style="height: 100%; position: absolute; inset: 0;"></div>
-      <div id="diff-editor" class="hidden" style="height: 100%; position: absolute; inset: 0;"></div>
+      <monaco-editor id="editor" style="height: 100%; position: absolute; inset: 0; display: block;"></monaco-editor>
+      <monaco-diff-editor id="diff-editor" class="hidden" style="height: 100%; position: absolute; inset: 0;"></monaco-diff-editor>
       <script>
         require.config({ paths: { vs: "vendor/vs" } })
         require(["vs/editor/editor.main"], function () {
           const editorElement = document.getElementById("editor")
-          editorElement.editor = monaco.editor.create(editorElement, {
-            theme: "vs-dark",
-            automaticLayout: true,
-            tabSize: 2,
-            insertSpaces: true,
-            readOnly: true,
-          })
           const dataMap = new Map()
           editorElement.setData = function (key, args = {}) {
             document.getElementById('diff-editor').classList.add('hidden')
@@ -113,21 +108,13 @@
           }
 
           const diffEditorElement = document.getElementById("diff-editor")
-          diffEditorElement.diffEditor = monaco.editor.createDiffEditor(diffEditorElement, {
-            theme: "vs-dark",
-            automaticLayout: true,
-            tabSize: 2,
-            insertSpaces: true,
-            readOnly: true,
-            hideUnchangedRegions: { enabled: true },
-          })
           diffEditorElement.setData = function (left, right) {
             document.getElementById('editor').classList.add('hidden')
             let original = dataMap.get(left)
             let modified = dataMap.get(right)
             if (!original) original = editorElement.setData(left)
             if (!modified) modified = editorElement.setData(right)
-            this.diffEditor.setModel({ original: original.model, modified: modified.model })
+            this.editor.setModel({ original: original.model, modified: modified.model })
             this.classList.remove('hidden')
           }
         })
