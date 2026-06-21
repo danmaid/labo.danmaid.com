@@ -78,9 +78,10 @@
           pointer-events: none;
         }
       </style>
-      <monaco-editor id="editor" style="height: 100%; position: absolute; inset: 0; display: block;"></monaco-editor>
-      <monaco-diff-editor id="diff-editor" class="hidden"
-        style="height: 100%; position: absolute; inset: 0;"></monaco-diff-editor>
+      <!-- <monaco-editor id="editor" style="height: 100%; position: absolute; inset: 0; display: block;"></monaco-editor> -->
+      <monaco-editor id="editor"></monaco-editor>
+      <!-- <monaco-diff-editor id="diff-editor" class="hidden"
+        style="height: 100%; position: absolute; inset: 0;"></monaco-diff-editor> -->
       <script>
         require.config({ paths: { vs: "vendor/vs" } })
         require(["vs/editor/editor.main"], function () {
@@ -108,16 +109,16 @@
           //   options.viewState = this.editor.saveViewState()
           // }
 
-          const diffEditorElement = document.getElementById("diff-editor")
-          diffEditorElement.setData = function (left, right) {
-            document.getElementById('editor').classList.add('hidden')
-            let original = dataMap.get(left)
-            let modified = dataMap.get(right)
-            if (!original) original = editorElement.setData(left)
-            if (!modified) modified = editorElement.setData(right)
-            this.editor.setModel({ original: original.model, modified: modified.model })
-            this.classList.remove('hidden')
-          }
+          // const diffEditorElement = document.getElementById("diff-editor")
+          // diffEditorElement.setData = function (left, right) {
+          //   document.getElementById('editor').classList.add('hidden')
+          //   let original = dataMap.get(left)
+          //   let modified = dataMap.get(right)
+          //   if (!original) original = editorElement.setData(left)
+          //   if (!modified) modified = editorElement.setData(right)
+          //   this.editor.setModel({ original: original.model, modified: modified.model })
+          //   this.classList.remove('hidden')
+          // }
         })
       </script>
     </fieldset>
@@ -160,6 +161,7 @@
               this.dataset.monaco = crypto.randomUUID()
               this.value = JSON.stringify(this.data.raw, null, 2)
               editor.setAttribute('target', `[data-monaco="${this.dataset.monaco}"]`)
+              editor.removeAttribute('diff')
               // editor.setData(this, { language: 'json' })
             })
             parent.click()
