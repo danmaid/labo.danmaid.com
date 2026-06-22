@@ -4,16 +4,15 @@
  * <script>require.config({ paths: { vs: "vendor/vs" } })</script>
  * <script src="js/monaco-editor.js"></script>
  * 
- * <monaco-editor target="#xxx"></monaco-editor>
- * <monaco-editor target="#xxx" diff="#yyy"></monaco-editor>
- * <monaco-editor language="json"></monaco-editor>
+ * <dm-monaco-editor target="#xxx"></dm-monaco-editor>
+ * <dm-monaco-editor target="#xxx" diff="#yyy"></dm-monaco-editor>
  */
-customElements.define("monaco-editor", class MonacoEditor extends HTMLElement {
+customElements.define("dm-monaco-editor", class DmMonacoEditor extends HTMLElement {
   static config = Symbol('config')
   static css = new CSSStyleSheet()
   static {
     this.css.replace(`
-      monaco-editor {
+      dm-monaco-editor {
         display: block;
         width: 100%;
         height: 100%;
@@ -25,11 +24,12 @@ customElements.define("monaco-editor", class MonacoEditor extends HTMLElement {
         height: 100%;
         position: absolute;
         inset: 0;
-        visibility: hidden !important;
       }
-      .editor.active {
-        visibility: visible !important;
-      }`)
+      .editor.inactive {
+        pointer-events: none;
+        opacity: 0;
+      }
+    `)
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.css]
   }
 
@@ -38,9 +38,9 @@ customElements.define("monaco-editor", class MonacoEditor extends HTMLElement {
     el.classList.add('editor')
     el.activate = () => {
       for (const editor of this.editors) {
-        editor === el
-          ? editor.classList.add('active')
-          : editor.classList.remove('active')
+        editor !== el
+          ? editor.classList.add('inactive')
+          : editor.classList.remove('inactive')
       }
     }
     return el
@@ -74,44 +74,33 @@ customElements.define("monaco-editor", class MonacoEditor extends HTMLElement {
     this.editors[0].activate()
   }
 
-  static observedAttributes = ['language', 'target', 'diff']
+  static observedAttributes = ['target', 'diff']
   async attributeChangedCallback(name, oldValue, newValue) {
     await this.editorReady
-    if (name === 'language') {
-      monaco.editor.setModelLanguage(this.editor.getModel(), newValue)
-      return
-    }
     if (name === 'target') {
-      const target = document.querySelector(newValue)
-      if (!target) throw Error(`Target element not found: ${newValue}`)
-      let config = target[MonacoEditor.config]
-      if (!config) config = target[MonacoEditor.config] = {}
-      let language = config.language
-      let model = config.model
-      if (!model) model = config.model = monaco.editor.createModel(target.value, language)
-      if (!language) language = config.language = model.getLanguageId()
+      const { model, viewState } = this.getConfig()
       this.editor.setModel(model)
-
-      let viewState = config.viewState
       if (viewState) this.editor.restoreViewState(viewState)
       this.editors[0].activate()
       return
     }
     if (name === 'diff') {
       if (!this.getAttribute('diff')) return this.editors[0].activate()
+      const { model: original } = this.getConfig(this.getAttribute('target'))
+      const { model: modified } = this.getConfig(this.getAttribute('diff'))
+      this.diffEditor.setModel({ original, modified })
+      const { viewState } = this.getConfig(this.getAttribute('config'))
+      if (viewState) this.diffEditor.restoreViewState(viewState)
       this.editors[1].activate()
-      console.log('diff attribute changed:', newValue)
-      // 後はここだけ。。。
       return
     }
   }
 
-  get value() { return this.editor?.getValue() ?? "" }
-  set value(value) { this.editor?.setValue(value ?? "") }
-  get language() { return this.getAttribute("language") }
-  set language(value) {
-    value == null
-      ? this.removeAttribute("language")
-      : this.setAttribute("language", value)
+  getConfig(query = this.getAttribute('config') || this.getAttribute('target')) {
+    const el = document.querySelector(query)
+    if (!el) throw Error(`Config element not found: ${query}`)
+    const config = el[DmMonacoEditor.config] ??= {}
+    config.model ??= monaco.editor.createModel(el.value)
+    return config
   }
 })

@@ -13,7 +13,7 @@
   <script src="js/dm-load-button.js"></script>
   <script src="vendor/vs/loader.js"></script>
   <script>require.config({ paths: { vs: "vendor/vs" } })</script>
-  <script src="js/monaco-editor.js"></script>
+  <script src="js/dm-monaco-editor.js"></script>
   <script>
     customElements.define('dm-sdwan-load-button', class extends DmLoadButton {
       async fetch() { return sdwan.fetch(this.url).then(r => r.json()) }
@@ -78,49 +78,7 @@
           pointer-events: none;
         }
       </style>
-      <!-- <monaco-editor id="editor" style="height: 100%; position: absolute; inset: 0; display: block;"></monaco-editor> -->
-      <monaco-editor id="editor"></monaco-editor>
-      <!-- <monaco-diff-editor id="diff-editor" class="hidden"
-        style="height: 100%; position: absolute; inset: 0;"></monaco-diff-editor> -->
-      <script>
-        require.config({ paths: { vs: "vendor/vs" } })
-        require(["vs/editor/editor.main"], function () {
-          const editorElement = document.getElementById("editor")
-          const dataMap = new Map()
-          // editorElement.setData = function (key, args = {}) {
-          //   document.getElementById('diff-editor').classList.add('hidden')
-          //   this.saveViewState()
-          //   this.data = key
-          //   let options = dataMap.get(key)
-          //   if (!options) options = {}; dataMap.set(key, options)
-          //   Object.assign(options, args)
-          //   if (!options.data) options.data = key.value
-          //   if (!options.model) options.model = monaco.editor.createModel(options.data)
-          //   if (options.language) monaco.editor.setModelLanguage(options.model, options.language)
-          //   this.editor.setModel(options.model)
-          //   if (options.viewState) this.editor.restoreViewState(options.viewState)
-          //   this.classList.remove('hidden')
-          //   return options
-          // }
-          // editorElement.saveViewState = function () {
-          //   if (!this.data) return
-          //   let options = dataMap.get(this.data)
-          //   if (!options) options = {}; dataMap.set(this.data, options)
-          //   options.viewState = this.editor.saveViewState()
-          // }
-
-          // const diffEditorElement = document.getElementById("diff-editor")
-          // diffEditorElement.setData = function (left, right) {
-          //   document.getElementById('editor').classList.add('hidden')
-          //   let original = dataMap.get(left)
-          //   let modified = dataMap.get(right)
-          //   if (!original) original = editorElement.setData(left)
-          //   if (!modified) modified = editorElement.setData(right)
-          //   this.editor.setModel({ original: original.model, modified: modified.model })
-          //   this.classList.remove('hidden')
-          // }
-        })
-      </script>
+      <dm-monaco-editor id="editor"></dm-monaco-editor>
     </fieldset>
   </div>
   <aside style="overflow: auto;">
@@ -140,7 +98,6 @@
           <script>
             {
               const editor = document.getElementById('editor')
-              const diffEditor = document.getElementById('diff-editor')
               document.currentScript.parentElement.addEventListener('click', function (ev) {
                 ev.stopPropagation()
                 dispatchAction('diff', {
@@ -158,10 +115,9 @@
             parent.addEventListener('click', function () {
               for (const sibling of this.parentElement.children) sibling.classList.remove('selected')
               this.classList.add('selected')
-              this.dataset.monaco = crypto.randomUUID()
-              this.value = JSON.stringify(this.data.raw, null, 2)
               editor.setAttribute('target', `[data-monaco="${this.dataset.monaco}"]`)
               editor.removeAttribute('diff')
+              editor.removeAttribute('config')
               // editor.setData(this, { language: 'json' })
             })
             parent.click()
@@ -179,6 +135,7 @@
           const data = ev.detail
           const fragment = template.content.cloneNode(true)
           const first = fragment.firstElementChild
+          first.dataset.monaco ??= crypto.randomUUID()
           first.data = data
           first.value = JSON.stringify(data.raw, null, 2)
           first.classList.add('data')
@@ -202,9 +159,9 @@
             parent.addEventListener('click', function () {
               for (const sibling of this.parentElement.children) sibling.classList.remove('selected')
               this.classList.add('selected')
-              this.dataset.monaco = crypto.randomUUID()
-              this.value = JSON.stringify(this.data.raw, null, 2)
-              editor.setAttribute('diff', `[data-monaco="${this.dataset.monaco}"]`)
+              editor.setAttribute('target', `[data-monaco="${this.original.dataset.monaco}"]`)
+              editor.setAttribute('diff', `[data-monaco="${this.modified.dataset.monaco}"]`)
+              editor.setAttribute('config', `[data-monaco="${this.dataset.monaco}"]`)
             })
             parent.click()
           }
@@ -221,9 +178,11 @@
           const data = ev.detail
           const fragment = template.content.cloneNode(true)
           const first = fragment.firstElementChild
+          first.dataset.monaco ??= crypto.randomUUID()
           first.data = data
           first.original = data.original
           first.modified = data.modified
+          first.value = JSON.stringify(data, null, 2)
           for (const el of fragment.querySelectorAll('[data-text]')) {
             const key = el.getAttribute('data-text')
             el.textContent = data[key]
