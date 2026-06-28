@@ -27,15 +27,24 @@ customElements.define("dm-windows", class DmWindows extends HTMLElement {
     window.addEventListener('click', (ev) => {
       if (ev.target.target !== 'dm-windows') return
       ev.preventDefault()
-      const window = document.createElement('dm-window')
       if (ev.target.tagName === 'A') {
         const iframe = document.createElement('iframe')
         iframe.src = ev.target.href
-        window.setAttribute('title', ev.target.textContent)
-        window.appendChild(iframe)
+        this.open(iframe, { title: ev.target.textContent })
       }
-      this.appendChild(window)
     })
+  }
+
+  open(element, { title = 'Window' } = {}) {
+    const doc = this.manager.ownerDocument
+    const window = doc.createElement('dm-window')
+    window.setAttribute('title', title)
+    window.appendChild(element)
+    return this.manager.appendChild(window)
+  }
+
+  get manager() {
+    return window.top.document.querySelector('dm-windows') ?? this
   }
 })
 
