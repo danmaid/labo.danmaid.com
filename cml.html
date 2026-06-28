@@ -27,15 +27,10 @@
     }
   </style>
   <script src="js/credentials.js"></script>
-  <script src="js/dm-window.js"></script>
+  <script src="js/dm-windows.js"></script>
 </head>
 
 <body class="full-screen">
-  <div>
-    <dm-window>
-      <dm-terminal io="ws://localhost:8080/ssh"></dm-terminal>
-    </dm-window>
-  </div>
   <script type="module">
     import { Terminal } from './vendor/xterm/xterm.mjs'
     import { FitAddon } from './vendor/xterm/addon-fit.mjs'
@@ -93,41 +88,17 @@
     customElements.define('dm-terminal', DmTerminal)
     document.createElement('dm-terminal')
   </script>
-  <dm-window-manager class="full-screen" style="display: flex;">
-    <script>
-      customElements.define('dm-window-manager', class extends HTMLElement {
-        constructor() {
-          super()
-          const overlay = document.createElement('div')
-          overlay.style.position = 'absolute'
-          overlay.style.inset = 0
-          overlay.style.zIndex = 1000
-          overlay.style.pointerEvents = 'none'
-          overlay.style.overflow = 'hidden'
-          this.appendChild(overlay)
-          this.addEventListener('click', (e) => {
-            if (e.target.target === 'dm-window') {
-              e.preventDefault()
-              const win = document.createElement('dm-window')
-              win.style.pointerEvents = 'auto'
-              win.setAttribute('title', e.target.textContent)
-              win.setAttribute('url', e.target.href)
-              overlay.appendChild(win)
-            }
-          })
-        }
-      })
-    </script>
+  <div class="full-screen" style="display: flex;">
     <div style="flex: 0 0 200px;">
       <div>nodes</div>
       <ul>
-        <li><a target="dm-window" data-cml="https://cml.danmaid.com" data-lab="cd24ee6f-d8e7-46ef-96ee-92616387360a"
+        <li><a target="dm-windows" data-cml="https://cml.danmaid.com" data-lab="cd24ee6f-d8e7-46ef-96ee-92616387360a"
             data-node="6dca4717-0b6c-411b-bc5d-d3ad5fb53c25">Lab 1</a></li>
-        <li><a href="https://cml2.danmaid.com/lab/0313c28f-990b-45ca-97d3-404ec36e27be" target="dm-window">Lab 2</a>
+        <li><a href="https://cml2.danmaid.com/lab/0313c28f-990b-45ca-97d3-404ec36e27be" target="dm-windows">Lab 2</a>
         </li>
-        <li><a href="https://cml3.danmaid.com/lab/9bdb554d-d378-47e6-af3e-0162e99b4a02" target="dm-window">Lab 3</a>
+        <li><a href="https://cml3.danmaid.com/lab/9bdb554d-d378-47e6-af3e-0162e99b4a02" target="dm-windows">Lab 3</a>
         </li>
-        <li><a href="https://cml4.danmaid.com/lab/01354126-65ee-499b-b015-8700e654ef6c" target="dm-window">Lab 4</a>
+        <li><a href="https://cml4.danmaid.com/lab/01354126-65ee-499b-b015-8700e654ef6c" target="dm-windows">Lab 4</a>
         </li>
       </ul>
     </div>
@@ -137,7 +108,8 @@
       <iframe src="https://cml3.danmaid.com/lab/9bdb554d-d378-47e6-af3e-0162e99b4a02"></iframe>
       <iframe src="https://cml4.danmaid.com/lab/01354126-65ee-499b-b015-8700e654ef6c"></iframe>
     </div>
-  </dm-window-manager>
+  </div>
+  <dm-windows></dm-windows>
 </body>
 
 </html>

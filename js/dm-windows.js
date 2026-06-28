@@ -12,6 +12,12 @@ customElements.define("dm-windows", class DmWindows extends HTMLElement {
         overflow: hidden;
         z-index: 1000;
       }
+      dm-windows > dm-window > iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+      }
     `)
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.css]
   }
@@ -23,9 +29,9 @@ customElements.define("dm-windows", class DmWindows extends HTMLElement {
       ev.preventDefault()
       const window = document.createElement('dm-window')
       if (ev.target.tagName === 'A') {
-        console.log('CATCH LINK', ev.target.href)
         const iframe = document.createElement('iframe')
         iframe.src = ev.target.href
+        window.setAttribute('title', ev.target.textContent)
         window.appendChild(iframe)
       }
       this.appendChild(window)
