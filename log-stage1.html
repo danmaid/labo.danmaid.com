@@ -1,0 +1,290 @@
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <title>PRB00408</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    table {
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="grid-column: 1 / span 4;">
+    <button>execute
+      <script>
+        {
+          document.currentScript.parentElement.addEventListener('click', async () => {
+            document.querySelector('#progress').style.visibility = 'visible'
+            /** @type {HTMLTableElement} */
+            const inputs = document.querySelector('table#inputs')
+            const lines = streamFrom(normalize([...inputs.rows].map(row => row.file)))
+              .pipeThrough(new TextDecoderStream())
+              .pipeThrough(TransformLinesStream())
+
+            const transformers = document.querySelector('table#transformers')
+            const output = document.querySelector('#output')
+            const date = new Date().toLocaleString('ja-JP', { hour12: false }).replace(/[\/: ]/g, '')
+            const pipelines = []
+            let input = lines
+            for (const tr of transformers.rows) {
+              const transformer = tr.logic()
+              const [a, b] = input.tee()
+              input = a
+              const pipeline = b
+                .pipeThrough(transformer)
+                .pipeTo(await output.stream(`${tr.name}-${date}.log`))
+              pipelines.push(pipeline)
+            }
+            input.cancel() // 最後の tee の片方は破棄する
+            await Promise.all(pipelines)
+            document.querySelector('#progress').style.visibility = 'hidden'
+          })
+
+          // gzip 圧縮されている場合は解凍する
+          async function* normalize(blobs) {
+            for (const blob of blobs) {
+              const stream = blob.type === 'application/gzip'
+                ? blob.stream().pipeThrough(new DecompressionStream('gzip'))
+                : blob.stream()
+              yield* stream
+            }
+          }
+
+          // async generator から ReadableStream を作る
+          function streamFrom(generator) {
+            const iterator = generator[Symbol.asyncIterator]()
+            return new ReadableStream({
+              async pull(controller) {
+                const { done, value } = await iterator.next()
+                if (done) controller.close()
+                else controller.enqueue(value)
+              },
+              async cancel(reason) {
+                if (iterator.return) await iterator.return(reason)
+              }
+            })
+          }
+
+          // 1行ごとの chunk で流す
+          function TransformLinesStream() {
+            let buffer = ''
+            return new TransformStream({
+              transform(chunk, controller) {
+                buffer += chunk
+                const parts = buffer.split(/\r?\n/)
+                buffer = parts.pop() ?? ''
+                for (const line of parts) controller.enqueue(line)
+              },
+              flush(controller) {
+                if (buffer) controller.enqueue(buffer)
+              }
+            })
+          }
+        }
+      </script>
+    </button>
+    下の設定をしてから。
+    <progress id="progress" style="visibility: hidden;"></progress>
+  </div>
+  <fieldset style="overflow: auto;">
+    <legend>input</legend>
+    <fieldset>
+      <table id="inputs"></table>
+    </fieldset>
+    <button>select folder
+      <script>
+        {
+          document.currentScript.parentElement.addEventListener('click', async () => {
+            const dirHandle = await window.showDirectoryPicker()
+            console.log(dirHandle)
+            const fileTable = document.querySelector('#file-list tbody')
+            const template = fileTable.querySelector('template')
+            for await (const handle of dirHandle.values()) {
+              console.log(handle)
+              if (handle.kind !== 'file') continue
+              const row = fileTable.insertRow()
+              const file = await handle.getFile()
+              row.file = file
+              const columns = template.content.cloneNode(true)
+              for (const text of columns.querySelectorAll('[data-text]')) {
+                const prop = text.dataset.text
+                text.textContent = file[prop]
+              }
+              row.appendChild(columns)
+            }
+          })
+        }
+      </script>
+    </button>
+    <small>.gz 可</small>
+    <table id="file-list">
+      <tbody>
+        <template>
+          <td data-text="name"></td>
+          <td data-text="size"></td>
+          <td><button>+
+              <script>
+                {
+                  const inputs = document.querySelector('table#inputs')
+                  const button = document.currentScript.parentElement
+                  button.addEventListener('click', () => {
+                    const tr = inputs.appendChild(button.closest('tr'))
+                  })
+                }
+              </script>
+            </button></td>
+        </template>
+      </tbody>
+    </table>
+  </fieldset>
+  <fieldset>
+    <legend>transformer</legend>
+    <fieldset>
+      <table id="transformers" style="white-space: nowrap;"></table>
+    </fieldset>
+    <table>
+      <tbody>
+        <tr>
+          <td>head</td>
+          <td>先頭10行取得</td>
+          <td><button>+
+              <script>
+                {
+                  const transformers = document.querySelector('table#transformers')
+                  const button = document.currentScript.parentElement
+                  button.addEventListener('click', () => {
+                    const tr = transformers.appendChild(button.closest('tr'))
+                  })
+                }
+              </script>
+            </button></td>
+          <script>
+            {
+              const tr = document.currentScript.parentElement
+              tr.name = 'head'
+              tr.logic = function HeadLinesStream(n = 10) {
+                let count = 0
+                return new TransformStream({
+                  transform(line, controller) {
+                    if (count < n) {
+                      controller.enqueue(line + '\n')
+                      count++
+                    }
+                  }
+                })
+              }
+            }
+          </script>
+        </tr>
+        <tr>
+          <td>tail</td>
+          <td>最後10行取得</td>
+          <td><button>+
+              <script>
+                {
+                  const transformers = document.querySelector('table#transformers')
+                  const button = document.currentScript.parentElement
+                  button.addEventListener('click', () => {
+                    const tr = transformers.appendChild(button.closest('tr'))
+                  })
+                }
+              </script>
+            </button></td>
+          <script>
+            {
+              const tr = document.currentScript.parentElement
+              tr.name = 'tail'
+              tr.logic = function TailLinesStream(n = 10) {
+                const lines = []
+                return new TransformStream({
+                  transform(line) {
+                    if (lines.length >= n) lines.shift()
+                    lines.push(line)
+                  },
+                  flush(controller) {
+                    for (const line of lines) controller.enqueue(line + '\n')
+                  }
+                })
+              }
+
+            }
+          </script>
+        </tr>
+        <tr>
+          <td>ISE log datetime</td>
+          <td>ISE の複数行ログから日時のみ抽出</td>
+          <td><button>+
+              <script>
+                {
+                  const transformers = document.querySelector('table#transformers')
+                  const button = document.currentScript.parentElement
+                  button.addEventListener('click', () => {
+                    const tr = transformers.appendChild(button.closest('tr'))
+                  })
+                }
+              </script>
+            </button></td>
+          <script>
+            {
+              const tr = document.currentScript.parentElement
+              tr.name = 'ISE log datetime'
+              tr.logic = function pickISEdatetimeStream() {
+                let previous = ''
+                return new TransformStream({
+                  transform(line, controller) {
+                    const split = line.split(/\s+/)
+                    const key = split.slice(5, 6).join('-')
+                    if (previous !== key) {
+                      controller.enqueue(`${split[8]}T${split[9]}${split[10]}\n`)
+                    }
+                    previous = key
+                  }
+                })
+              }
+            }
+          </script>
+        </tr>
+      </tbody>
+    </table>
+  </fieldset>
+  <fieldset id="output">
+    <legend>output</legend>
+    <fieldset>
+      フォルダに作成されるから見て。
+    </fieldset>
+    <button>select folder
+      <script>
+        {
+          const output = document.querySelector('#output')
+          document.currentScript.parentElement.addEventListener('click', async () => {
+            const dirHandle = await window.showDirectoryPicker()
+            console.log(dirHandle)
+            output.dirHandle = dirHandle
+            document.querySelector('#output-folder').textContent = dirHandle.name
+          })
+
+          output.stream = async function (fileName) {
+            if (!output.dirHandle) throw new Error('出力先が選択されていません')
+            const handle = await output.dirHandle.getFileHandle(fileName, { create: true })
+            return handle.createWritable()
+          }
+        }
+      </script>
+    </button>
+    <small id="output-folder">出力先を選択</small>
+  </fieldset>
+</body>
+
+</html>
