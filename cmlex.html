@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    iframe {
+      display: block;
+      border: none;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+    }
+
+    dm-window {
+      width: 640px;
+      height: 480px;
+    }
+  </style>
+  <link rel="stylesheet" href="css/full-screen.css">
+  <script src="js/dm-windows.js"></script>
+</head>
+
+<body class="full-screen">
+  <iframe src="https://cml2.danmaid.com/lab/b6e89d16-06b9-437f-8040-0478b28dfcc3"
+    allow="clipboard-read; clipboard-write"></iframe>
+  <dm-windows></dm-windows>
+  <script type="module">
+    import { Terminal } from "./vendor/xterm/xterm.mjs"
+    import { FitAddon } from "./vendor/xterm/addon-fit.mjs"
+    const cssUrl = "vendor/xterm/xterm.css"
+    const cssText = await fetch(cssUrl).then(r => r.text())
+    const xtermCss = new CSSStyleSheet()
+    await xtermCss.replace(cssText)
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, xtermCss]
+
+    async function openConsole(nodeId) {
+      const div = document.createElement('div')
+      div.style.width = '100%'
+      div.style.height = '100%'
+
+      const term = new Terminal({ cursorBlink: true })
+      const fit = new FitAddon()
+      term.loadAddon(fit)
+      term.open(div)
+      fit.fit()
+      new ResizeObserver(() => fit.fit()).observe(div)
+
+      const token = await fetch('https://cml2.danmaid.com/api/v0/authenticate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: 'kanikani' }),
+      }).then(r => r.json())
+      const key = await fetch(`https://cml2.danmaid.com/api/v0/labs/b6e89d16-06b9-437f-8040-0478b28dfcc3/nodes/${nodeId}/keys/console?line=0`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json())
+      const ws = new WebSocket(`wss://cml2.danmaid.com/ws/dispatch/frontend/console?uuid=${key}`)
+      ws.binaryType = 'arraybuffer'
+      ws.addEventListener('open', () => console.log('WebSocket connection opened'))
+      ws.addEventListener('close', () => console.log('WebSocket connection closed'))
+      ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
+
+      ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
+      ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+      term.onData(data => ws.send(data))
+
+      div.terminal = term
+      div.ws = ws
+      return div
+    }
+
+    // 初期表示
+    const nodes = [
+      { id: 'b8f0abaf-ed57-44cb-a3e8-9eb92f513ae0', name: 'net-tools-0' },
+      { id: '8ad2a2c9-99c6-49e3-a98a-14078ca149e2', name: 'R0' },
+      { id: 'ab2552ba-4110-45ab-8623-be84f4233d22', name: 'net-tools-6' },
+      { id: 'edc30a2d-3088-4937-89ed-a63e66d3cb5e', name: 'net-tools-7' }
+    ]
+    let pos = 1
+    for (const { id, name } of nodes) {
+      const window = document.createElement('dm-window')
+      window.setAttribute('title', name)
+      const term = await openConsole(id)
+      window.appendChild(term)
+      window.style.left = `${pos}em`
+      window.style.top = `${pos}em`
+      pos++
+
+      const repeat = document.createElement('div')
+      repeat.style.position = 'absolute'
+      repeat.style.top = '1em'
+      repeat.style.right = '1em'
+      const input = document.createElement('input')
+      input.style.width = '20em'
+      const button = document.createElement('button')
+      button.textContent = 'Repeat'
+      button.addEventListener('click', () => {
+        if (repeat.interval) {
+          clearInterval(repeat.interval)
+          button.textContent = 'Repeat'
+          repeat.interval = null
+        } else {
+          repeat.interval = setInterval(() => {
+            const text = input.value
+            if (text) term.ws.send(text + '\n')
+          }, 3000)
+          button.textContent = 'Stop'
+        }
+      })
+      repeat.appendChild(input)
+      repeat.appendChild(button)
+      window.appendChild(repeat)
+
+      document.querySelector('dm-windows').appendChild(window)
+    }
+  </script>
+  <script type="module">
+    import RFB from './vendor/noVNC/core/rfb.js'
+
+    const token = await fetch('https://cml2.danmaid.com/api/v0/authenticate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'kanikani' }),
+    }).then(r => r.json())
+    const nodeId = '2ef6a32f-fc22-4369-9b6a-b7df7b0c4782'
+    const key = await fetch(`https://cml2.danmaid.com/api/v0/labs/b6e89d16-06b9-437f-8040-0478b28dfcc3/nodes/${nodeId}/keys/vnc`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => r.json())
+    const ws = new WebSocket(`wss://cml2.danmaid.com/ws/dispatch/frontend/vnc?node_key=${key}`)
+    ws.binaryType = 'arraybuffer'
+    ws.addEventListener('open', () => console.log('WebSocket connection opened'))
+    ws.addEventListener('close', () => console.log('WebSocket connection closed'))
+    ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
+
+    ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
+
+    const window = document.createElement('dm-window')
+    window.style.width = 'auto'
+    window.style.height = 'auto'
+    const div = document.createElement('div')
+    div.style.width = 'auto'
+    div.style.height = 'auto'
+    const rfb = new RFB(div, ws, { scaleViewport: false })
+    window.appendChild(div)
+    document.querySelector('dm-windows').appendChild(window)
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+
+<head>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="win"></div>
+  <script type="module">
+    import RFB from './vendor/noVNC/core/rfb.js'
+
+    const token = await fetch('https://cml2.danmaid.com/api/v0/authenticate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'kanikani' }),
+    }).then(r => r.json())
+    const nodeId = 'b00e249f-64eb-4d51-abd8-1b54ac78cbab'
+    const key = await fetch(`https://cml2.danmaid.com/api/v0/labs/b6e89d16-06b9-437f-8040-0478b28dfcc3/nodes/${nodeId}/keys/vnc`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => r.json())
+    // const ws = new WebSocket(`wss://cml.danmaid.com/ws/dispatch/frontend/vnc?cml_client=WebUI&action=lab_exec&node_key=${key}`)
+    const ws = new WebSocket(`wss://cml2.danmaid.com/ws/dispatch/frontend/vnc?node_key=${key}`)
+    ws.binaryType = 'arraybuffer'
+    ws.addEventListener('open', () => console.log('WebSocket connection opened'))
+    ws.addEventListener('close', () => console.log('WebSocket connection closed'))
+    ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
+
+    ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
+    const rfb = new RFB(document.getElementById('win'), ws)
+    //    ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+    console.log(rfb)
+  </script>
+</body>
+
+</html>
