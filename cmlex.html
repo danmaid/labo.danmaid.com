@@ -22,6 +22,7 @@
   </style>
   <link rel="stylesheet" href="css/full-screen.css">
   <script src="js/dm-windows.js"></script>
+  <script src="js/dm-terminal.mjs" type="module"></script>
 </head>
 
 <body class="full-screen">
@@ -29,26 +30,8 @@
     allow="clipboard-read; clipboard-write"></iframe>
   <dm-windows></dm-windows>
   <script type="module">
-    import { Terminal } from "./vendor/xterm/xterm.mjs"
-    import { FitAddon } from "./vendor/xterm/addon-fit.mjs"
-    const cssUrl = "vendor/xterm/xterm.css"
-    const cssText = await fetch(cssUrl).then(r => r.text())
-    const xtermCss = new CSSStyleSheet()
-    await xtermCss.replace(cssText)
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, xtermCss]
-
     async function openConsole(nodeId) {
-      const div = document.createElement('div')
-      div.style.width = '100%'
-      div.style.height = '100%'
-
-      const term = new Terminal({ cursorBlink: true })
-      const fit = new FitAddon()
-      term.loadAddon(fit)
-      term.open(div)
-      fit.fit()
-      new ResizeObserver(() => fit.fit()).observe(div)
-
+      const div = document.createElement('dm-terminal')
       const token = await fetch('https://cml2.danmaid.com/api/v0/authenticate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,10 +47,9 @@
       ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
 
       ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
-      ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
-      term.onData(data => ws.send(data))
+      ws.addEventListener('message', (e) => div.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+      // div.onData(data => ws.send(data))
 
-      div.terminal = term
       div.ws = ws
       return div
     }
@@ -117,7 +99,7 @@
       document.querySelector('dm-windows').appendChild(window)
     }
   </script>
-  <script type="module">
+  <!-- <script type="module">
     import RFB from './vendor/noVNC/core/rfb.js'
 
     const token = await fetch('https://cml2.danmaid.com/api/v0/authenticate', {
@@ -137,16 +119,29 @@
 
     ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
 
-    const window = document.createElement('dm-window')
-    window.style.width = 'auto'
-    window.style.height = 'auto'
+    const windowEl = document.createElement('dm-window')
+    windowEl.style.width = '640px'
+    windowEl.style.height = '480px'
     const div = document.createElement('div')
-    div.style.width = 'auto'
-    div.style.height = 'auto'
-    const rfb = new RFB(div, ws, { scaleViewport: false })
-    window.appendChild(div)
-    document.querySelector('dm-windows').appendChild(window)
-  </script>
+    div.style.width = '100%'
+    div.style.height = '100%'
+    const rfb = new RFB(div, ws, { scaleViewport: true })
+    function updateScale() {
+      const w = windowEl.clientWidth;
+      const h = windowEl.clientHeight;
+
+      const scale = Math.min(
+        w / 1280,
+        h / 1024
+      );
+
+      rfb.viewportScale = scale;
+    }
+    new ResizeObserver(updateScale).observe(windowEl);
+
+    windowEl.appendChild(div)
+    document.querySelector('dm-windows').appendChild(windowEl)
+  </script> -->
 
 </body>
 
