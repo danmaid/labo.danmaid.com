@@ -8,6 +8,7 @@
     }
   </style>
   <script src="js/dm-sdwan.js"></script>
+  <script src="js/dm-terminal.mjs" type="module"></script>
 </head>
 
 <body>
@@ -18,177 +19,17 @@
         document.currentScript.parentElement.addEventListener('click', async () => {
           const sdwan = document.querySelector('dm-sdwan')
           const systemIp = document.getElementById('system-ip').value
-          const ssh = await (await sdwan.fetch(`/newssh/connection/${systemIp}`, {
-            method: 'POST',
-            body: JSON.stringify({
-              username: 'dummy',
-              password: 'dummy',
-              height: 1000,
-              width: 945.33
-            })
-          })).json()
-          const iframe = document.getElementById('iframe')
+          const ssh = await sdwan.ssh(systemIp)
           console.log(ssh)
-          window.open(`https://manager.sdwan.danmaid.com/${ssh.data.connectURL}`, '_blank')
-          // iframe.src = `https://manager.sdwan.danmaid.com${ssh.data.connectURL}`
+          const socket = new SdwanSshSocket(new URL(ssh.data.connectURL, sdwan.manager))
+          const term = document.querySelector('dm-terminal')
+          socket.addEventListener('message', e => term.write(e.data))
+          term.onData(data => socket.send(data))
         })
       </script>
     </button>
   </div>
-  <iframe id="iframe"></iframe>
-  <script type="module">
-    import { Terminal } from './vendor/xterm/xterm.mjs'
-    import { FitAddon } from './vendor/xterm/addon-fit.mjs'
-    const cssText = await fetch('./vendor/xterm/xterm.css').then(r => r.text())
-    const css = new CSSStyleSheet()
-    await css.replace(cssText)
-    await css.insertRule(`
-      :host {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }`)
-
-    class DmTerminal extends HTMLElement {
-      xterm = new Terminal()
-      constructor() {
-        super()
-        const shadow = this.attachShadow({ mode: 'open' })
-        shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, css]
-        const fit = new FitAddon()
-        this.fit = fit
-        this.xterm.loadAddon(fit)
-        this.xterm.open(this)
-        // 80x24 に必要なピクセルサイズを取得
-        console.log({ xterm: this.xterm })
-        const core = this.xterm._core
-        console.log({ core })
-        const dims = core._renderService.dimensions
-        console.log({ dims })
-
-        const cw = dims.actualCellWidth
-        const ch = dims.actualCellHeight
-        console.log({ cw, ch })
-        // // Element のサイズを調整
-        // const el = document.getElementById('terminal')
-        // el.style.width = dims.width + 'px'
-        // el.style.height = dims.height + 'px'
-
-        // その後、fit() で反映
-        fit.fit()
-
-        new ResizeObserver(() => fit.fit()).observe(this)
-      }
-      connectedCallback() {
-        const core = this.xterm._core
-        console.log('cc', { core })
-        const dims = core._renderService.dimensions
-        console.log('cc', { dims })
-
-        const cw = dims.actualCellWidth
-        const ch = dims.actualCellHeight
-        console.log('cc', { cw, ch })
-      }
-    }
-    customElements.define('dm-terminal', DmTerminal)
-    document.createElement('dm-terminal')
-  </script>
-  <script type="module">
-    import { Terminal } from 'xterm';
-    import { FitAddon } from 'xterm-addon-fit';
-
-    const term = new Terminal({
-      convertEol: true,
-      fontFamily: 'monospace',
-      fontSize: 14,
-    });
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-
-    term.open(document.getElementById('terminal'));
-    fitAddon.fit();
-
-    // ------------------------------
-    // ① 初回接続 → セッション作成
-    // ------------------------------
-    async function createSession() {
-      const payload = new URLSearchParams();
-      payload.set('width', 98);
-      payload.set('height', 30);
-      payload.set('rooturl', location.href);
-
-      const res = await fetch('/shell/?', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: payload.toString()
-      });
-
-      const json = await res.json();
-      return json.session;
-    }
-
-    let sessionId = null;
-
-    // ------------------------------
-    // ② poll（出力取得）
-    // ------------------------------
-    async function pollOutput() {
-      while (true) {
-        try {
-          const payload = new URLSearchParams();
-          payload.set('session', sessionId);
-          payload.set('poll', '1');
-
-          const res = await fetch(`/shell/${sessionId}/?`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: payload.toString()
-          });
-
-          const json = await res.json();
-
-          if (json.data || json.output) {
-            term.write(json.data || json.output);
-          }
-
-        } catch (e) {
-          // exit 時などに暴走しないように少し待つ
-          await new Promise(r => setTimeout(r, 100));
-        }
-      }
-    }
-
-    // ------------------------------
-    // ③ キー入力（keys=）
-    // ------------------------------
-    term.onData(async data => {
-      const payload = new URLSearchParams();
-      payload.set('session', sessionId);
-      payload.set('keys', encodeKeysToHex(data));
-
-      await fetch(`/shell/${sessionId}/?`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: payload.toString()
-      });
-    });
-
-    // ------------------------------
-    // セッション開始
-    // ------------------------------
-    (async () => {
-      sessionId = await createSession();
-      pollOutput();
-    })();
-
-    function encodeKeysToHex(data) {
-      let hex = '';
-      for (let i = 0; i < data.length; i++) {
-        hex += data.charCodeAt(i).toString(16).toUpperCase().padStart(2, '0');
-      }
-      return hex;
-    }
-  </script>
+  <dm-terminal></dm-terminal>
 </body>
 
 </html>
