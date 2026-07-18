@@ -26,33 +26,121 @@
 <body class="full-screen">
   <fieldset>
     <legend>Logger</legend>
+    <div>
+      <table>
+        <thead>
+          <tr>
+            <th>buffer</th>
+            <th>file</th>
+            <th>stored</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>30</td>
+            <td>xxx.log</td>
+            <td>356</td>
+          </tr>
+          <tr>
+            <td>45</td>
+            <td>yyy.log</td>
+            <td>512</td>
+          </tr>
+        </tbody>
+      </table>
+      <tfoot>
+        <button>directory</button>
+        <span>hostname-20260718-123456.log</span>
+      </tfoot>
+    </div>
+    <hr>
     <dm-logger></dm-logger>
     <script>
-      customElements.define('dm-logger', class DmLogger extends HTMLElement {
-        /** @type {HTMLButtonElement} */
-        button
+      class DmDirectory extends HTMLElement {
         /** @type {FileSystemDirectoryHandle | null} */
-        dirHandle = null
-
+        handle = null
         constructor() {
           super()
           const shadow = this.attachShadow({ mode: 'open' })
-          shadow.innerHTML = `<button>Select<input type="checkbox"></button>`
-          /** @type {HTMLButtonElement} */
-          this.button = shadow.querySelector('button')
-          this.button.addEventListener('click', async () => {
+          const button = document.createElement('button')
+          button.textContent = 'Select'
+          button.addEventListener('click', async () => {
             try {
-              this.button.disabled = true
-              const dirHandle = await window.showDirectoryPicker()
-              console.log(dirHandle)
-              this.dirHandle = dirHandle
-              console.log(await dirHandle.queryPermission({ mode: "readwrite" }))
+              button.disabled = true
+              const dirHandle = await globalThis.showDirectoryPicker()
+              console.log(1, dirHandle)
+              this.handle = dirHandle
+              this.dispatchEvent(new Event('change'))
             } finally {
-              this.button.disabled = false
+              button.disabled = false
             }
           })
+          shadow.appendChild(button)
+        }
+      }
+      customElements.define('dm-directory', DmDirectory)
 
+      class FileLogger {
+        constructor(file) {
+          console.log(file)
+          /** @type {FileSystemFileHandle} */
+          this.file = file
+          /** @type {string[]} */
+          this.chunks = []
+        }
+
+        write(text) {
+          this.chunks.push(text)
+          console.debug(text)
+        }
+      }
+
+      customElements.define('dm-logger', class DmLogger extends HTMLElement {
+        static dateTimeFormat = new Intl.DateTimeFormat("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+        static getDate(date = new Date()) {
+          const parts = this.dateTimeFormat.formatToParts(date)
+          const d = parts.filter(v => v.type !== 'literal').map(v => v.value)
+          return d.slice(0, 3).join('') + '-' + d.slice(3).join('')
+        }
+
+        async createLogger(key = 'dm-logger') {
+          if (!this.dir.handle) await new Promise(r => this.dir.addEventListener('change', r, { once: true }))
+          const dir = this.dir.handle
+          console.log(2, dir, await dir.queryPermission({ mode: "readwrite" }))
+          if (!dir) throw new Error('Directory handle is not set')
+          const filename = `${key}-${DmLogger.getDate()}.log`
+          await dir.getFileHandle(filename, { create: false })
+            .then(() => { throw new Error('File already exists') })
+            .catch((e) => { console.log(e) })
+          try {
+            console.log(3, dir, await dir.requestPermission({ mode: "readwrite" }))
+            const file = await dir.getFileHandle(filename, { create: true })
+          } catch (e) {
+            console.error(e)
+          }
+          return
+          return new FileLogger(file)
+        }
+
+        /** @type {DmDirectory} */
+        dir = document.createElement('dm-directory')
+        constructor() {
+          super()
+          const shadow = this.attachShadow({ mode: 'open' })
+          shadow.appendChild(this.dir)
           // this.load()
+          this.createLogger().then(x => {
+            console.log(x)
+          }).catch(e => {
+            console.error(e)
+          })
         }
 
         async load() {
