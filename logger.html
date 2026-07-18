@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <link rel="stylesheet" href="css/full-screen.css">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    body>:nth-child(1) {
+      grid-column: 1 / span 2;
+    }
+  </style>
+  <script src="js/dm-terminal.mjs" type="module"></script>
+  <script src="vendor/vs/loader.js"></script>
+  <script>require.config({ paths: { vs: "vendor/vs" } })</script>
+  <script src="js/dm-monaco-editor.js"></script>
+</head>
+
+<body class="full-screen">
+  <fieldset>
+    <legend>Logger</legend>
+    <dm-logger></dm-logger>
+    <script>
+      customElements.define('dm-logger', class DmLogger extends HTMLElement {
+        /** @type {HTMLButtonElement} */
+        button
+        /** @type {FileSystemDirectoryHandle | null} */
+        dirHandle = null
+
+        constructor() {
+          super()
+          const shadow = this.attachShadow({ mode: 'open' })
+          shadow.innerHTML = `<button>Select<input type="checkbox"></button>`
+          /** @type {HTMLButtonElement} */
+          this.button = shadow.querySelector('button')
+          this.button.addEventListener('click', async () => {
+            try {
+              this.button.disabled = true
+              const dirHandle = await window.showDirectoryPicker()
+              console.log(dirHandle)
+              this.dirHandle = dirHandle
+              console.log(await dirHandle.queryPermission({ mode: "readwrite" }))
+            } finally {
+              this.button.disabled = false
+            }
+          })
+
+          // this.load()
+        }
+
+        async load() {
+          const text = this.button.textContent
+          try {
+            this.button.textContent = '...'
+            const dirHandle = await this.config.load()
+            console.log(dirHandle)
+            if (!(dirHandle instanceof FileSystemDirectoryHandle)) throw new Error('Invalid directory handle')
+            this.dirHandle = dirHandle
+            this.button.textContent = dirHandle.name
+          } catch {
+            this.button.textContent = text
+          }
+        }
+
+        config = {
+          async load() {
+            await new Promise(r => setTimeout(r, 1000))
+          },
+          async save() { }
+        }
+      })
+    </script>
+    <button>dir
+      <script>
+        class DmLogger extends EventTarget {
+          /** @type { ArrayBuffer[] } */
+          chunks = []
+
+          /** @type { (text: ArrayBuffer) => void } */
+          write(chunk) {
+            this.chunks.push(chunk)
+            this.dispatchEvent(new MessageEvent('message', { data: chunk }))
+          }
+        }
+
+        class DmStringLogger extends DmLogger {
+          static encoder = new TextEncoder()
+          /** @type { (text: string) => void } */
+          write(text) {
+            const encoded = DmStringLogger.encoder.encode(text)
+            const hex = [...encoded].map(b => b.toString(16).padStart(2, '0')).join(' ')
+            console.debug(`${hex} | ${JSON.stringify(text)}`)
+            super.write(encoded.buffer)
+          }
+        }
+
+        {
+          const logger = new DmStringLogger()
+          addEventListener('load', () => {
+            const term = document.querySelector('dm-terminal')
+            customElements.whenDefined('dm-terminal').then(() => {
+              term.onData(d => d === '\r' ? term.write('\r\n') : term.write(d))
+
+              term.onData(data => logger.write(data))
+            })
+
+            const preview = document.querySelector('dm-monaco-editor')
+            customElements.whenDefined('dm-monaco-editor').then(() => {
+              const decoder = new TextDecoder()
+              logger.addEventListener('message', e => {
+                const text = decoder.decode(e.data)
+                preview.editor.setValue(preview.editor.getValue() + text)
+              })
+            })
+          })
+
+          const button = document.currentScript.parentElement
+          Promise.resolve().then(async () => {
+            const db = await new Promise((resolve, reject) => {
+              const req = indexedDB.open('dm-logger', 1)
+              req.onupgradeneeded = () => {
+                const db = req.result
+                db.createObjectStore('config')
+              }
+              req.onsuccess = () => resolve(req.result)
+              req.onerror = () => reject(req.error)
+            })
+            const dir = await new Promise((resolve, reject) => {
+              const tx = db.transaction('config', 'readonly')
+              const store = tx.objectStore('config')
+              const req = store.get('default')
+              req.onsuccess = () => resolve(req.result)
+              req.onerror = () => reject(req.error)
+            })
+            await db.close()
+
+            if (dir) {
+              const dirHandle = dir
+              console.log(dirHandle.name)
+              const permission = await dirHandle.queryPermission({ mode: "readwrite" })
+              console.log(permission)
+              if (permission !== "granted") {
+                window.addEventListener('pointerdown', async () => {
+                  const result =
+                    await dirHandle.requestPermission({
+                      mode: "readwrite",
+                    });
+
+                  if (result !== "granted") {
+                    throw new Error("permission denied");
+                  }
+                  console.log(await dirHandle.queryPermission({ mode: "readwrite" }))
+                }, { once: true })
+              }
+              if (permission === "granted") {
+                button.textContent = dirHandle.name
+                const files = []
+                for await (const entry of dirHandle.values()) {
+                  if (entry.kind === 'file') {
+                    files.push(entry.name)
+                  }
+                }
+                console.log(files)
+              }
+            }
+          })
+
+          button.addEventListener('click', async () => {
+            const dirHandle = await window.showDirectoryPicker()
+            console.log(dirHandle.name)
+            console.log(await dirHandle.queryPermission({ mode: "readwrite" }))
+            await new Promise((resolve, reject) => {
+              const req = indexedDB.open('dm-logger', 1)
+              req.onsuccess = () => {
+                const db = req.result
+                const tx = db.transaction('config', 'readwrite')
+                const store = tx.objectStore('config')
+                const putReq = store.put(dirHandle, 'default')
+                putReq.onsuccess = () => {
+                  resolve()
+                  db.close()
+                }
+                putReq.onerror = () => reject(putReq.error)
+              }
+              req.onerror = () => reject(req.error)
+            })
+            button.textContent = dirHandle.name
+          })
+        }
+      </script>
+    </button>
+  </fieldset>
+  <fieldset>
+    <legend>Terminal</legend>
+    <dm-terminal logger></dm-terminal>
+  </fieldset>
+  <fieldset>
+    <legend>Preview</legend>
+    <dm-monaco-editor></dm-monaco-editor>
+  </fieldset>
+</body>
+
+</html>
