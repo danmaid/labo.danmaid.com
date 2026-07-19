@@ -11,10 +11,25 @@
     body {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr;
     }
 
     body>:nth-child(1) {
       grid-column: 1 / span 2;
+    }
+
+    table td,
+    table th {
+      border-right: 1px solid #666;
+      border-bottom: 1px solid #666;
+    }
+
+    table caption {
+      border-bottom: 1px solid #666;
+    }
+
+    table {
+      font-family: monospace;
     }
   </style>
   <script src="js/dm-terminal.mjs" type="module"></script>
@@ -26,268 +41,313 @@
 <body class="full-screen">
   <fieldset>
     <legend>Logger</legend>
-    <div>
-      <table>
-        <thead>
-          <tr>
-            <th>buffer</th>
-            <th>file</th>
-            <th>stored</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>30</td>
-            <td>xxx.log</td>
-            <td>356</td>
-          </tr>
-          <tr>
-            <td>45</td>
-            <td>yyy.log</td>
-            <td>512</td>
-          </tr>
-        </tbody>
-      </table>
-      <tfoot>
-        <button>directory</button>
-        <span>hostname-20260718-123456.log</span>
-      </tfoot>
-    </div>
-    <hr>
     <dm-logger></dm-logger>
     <script>
-      class DmDirectory extends HTMLElement {
-        /** @type {FileSystemDirectoryHandle | null} */
-        handle = null
-        constructor() {
-          super()
-          const shadow = this.attachShadow({ mode: 'open' })
-          const button = document.createElement('button')
-          button.textContent = 'Select'
-          button.addEventListener('click', async () => {
-            try {
-              button.disabled = true
-              const dirHandle = await globalThis.showDirectoryPicker()
-              console.log(1, dirHandle)
-              this.handle = dirHandle
-              this.dispatchEvent(new Event('change'))
-            } finally {
-              button.disabled = false
-            }
-          })
-          shadow.appendChild(button)
+      class Logger extends EventTarget {
+        id = crypto.randomUUID()
+        type = 'arraybuffer'
+        /** @type { ArrayBuffer[] } */
+        chunks = []
+
+        /** @type { (chunk: ArrayBuffer) => void } */
+        write(chunk) {
+          this.chunks.push(chunk)
+          queueMicrotask(() => this.dispatchEvent(new Event('change')))
         }
       }
-      customElements.define('dm-directory', DmDirectory)
 
-      class FileLogger {
-        constructor(file) {
-          console.log(file)
-          /** @type {FileSystemFileHandle} */
-          this.file = file
-          /** @type {string[]} */
-          this.chunks = []
-        }
+      class TextLogger extends Logger {
+        static encoder = new TextEncoder()
+        type = 'text'
 
+        /** @type { (text: string) => void } */
         write(text) {
-          this.chunks.push(text)
-          console.debug(text)
+          super.write(TextLogger.encoder.encode(text).buffer)
+        }
+      }
+
+      class Adapter {
+        id = crypto.randomUUID()
+        logger = null
+        target = null
+        attach(el) {
+          this.target = el
+          el.adapter = this
+          el.logger = this.logger
+        }
+      }
+
+      class DmTerminalAdapter extends Adapter {
+        type = 'dm-terminal'
+        logger = new TextLogger()
+
+        async attach(el) {
+          super.attach(el)
+          await customElements.whenDefined('dm-terminal')
+          el.onData(data => this.logger.write(data))
         }
       }
 
       customElements.define('dm-logger', class DmLogger extends HTMLElement {
-        static dateTimeFormat = new Intl.DateTimeFormat("ja-JP", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
-        static getDate(date = new Date()) {
-          const parts = this.dateTimeFormat.formatToParts(date)
-          const d = parts.filter(v => v.type !== 'literal').map(v => v.value)
-          return d.slice(0, 3).join('') + '-' + d.slice(3).join('')
+        /** @type { Logger[] } */
+        loggers = []
+        loggerMap = new Map([
+          ['text', TextLogger],
+          ['arraybuffer', Logger]
+        ])
+        adapters = []
+        adapterMap = new Map([
+          ['dm-terminal', DmTerminalAdapter]
+        ])
+
+        /** @type { () => Logger } */
+        createLogger(type = null) {
+          const LoggerClass = this.loggerMap.get(type) ?? Logger
+          const logger = new LoggerClass()
+          this.loggers.push(logger)
+          queueMicrotask(() => this.dispatchEvent(new Event('change')))
+          return logger
         }
 
-        async createLogger(key = 'dm-logger') {
-          if (!this.dir.handle) await new Promise(r => this.dir.addEventListener('change', r, { once: true }))
-          const dir = this.dir.handle
-          console.log(2, dir, await dir.queryPermission({ mode: "readwrite" }))
-          if (!dir) throw new Error('Directory handle is not set')
-          const filename = `${key}-${DmLogger.getDate()}.log`
-          await dir.getFileHandle(filename, { create: false })
-            .then(() => { throw new Error('File already exists') })
-            .catch((e) => { console.log(e) })
-          try {
-            console.log(3, dir, await dir.requestPermission({ mode: "readwrite" }))
-            const file = await dir.getFileHandle(filename, { create: true })
-          } catch (e) {
-            console.error(e)
+        /** @type { () => DmTerminalAdapter } */
+        createAdapter(type) {
+          const AdapterClass = this.adapterMap.get(type)
+          if (!AdapterClass) throw new Error(`Unknown adapter type: ${type}`)
+          const adapter = new AdapterClass()
+          this.adapters.push(adapter)
+          this.loggers.push(adapter.logger)
+          queueMicrotask(() => this.dispatchEvent(new Event('change')))
+          return adapter
+        }
+
+        connectedCallback() {
+          for (const adapter of this.adapters) {
+            for (const el of document.querySelectorAll(adapter.type)) {
+              if (el.adapter) continue
+              adapter.attach(el)
+            }
           }
-          return
-          return new FileLogger(file)
-        }
-
-        /** @type {DmDirectory} */
-        dir = document.createElement('dm-directory')
-        constructor() {
-          super()
-          const shadow = this.attachShadow({ mode: 'open' })
-          shadow.appendChild(this.dir)
-          // this.load()
-          this.createLogger().then(x => {
-            console.log(x)
-          }).catch(e => {
-            console.error(e)
-          })
-        }
-
-        async load() {
-          const text = this.button.textContent
-          try {
-            this.button.textContent = '...'
-            const dirHandle = await this.config.load()
-            console.log(dirHandle)
-            if (!(dirHandle instanceof FileSystemDirectoryHandle)) throw new Error('Invalid directory handle')
-            this.dirHandle = dirHandle
-            this.button.textContent = dirHandle.name
-          } catch {
-            this.button.textContent = text
-          }
-        }
-
-        config = {
-          async load() {
-            await new Promise(r => setTimeout(r, 1000))
-          },
-          async save() { }
+          new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+              for (const node of mutation.addedNodes) {
+                if (!(node instanceof HTMLElement)) continue
+                for (const [tag] of this.adapterMap) {
+                  for (const el of node.querySelectorAll(tag)) {
+                    if (el.adapter) continue
+                    this.createAdapter(tag).attach(el)
+                  }
+                }
+              }
+            }
+          }).observe(document, { childList: true, subtree: true })
         }
       })
     </script>
-    <button>dir
+    <table>
+      <caption>Adapters</caption>
+      <thead>
+        <tr>
+          <th>id</th>
+          <th>type</th>
+          <th>target</th>
+          <th>logger</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template>
+          <tr data-bind>
+            <td data-bind="id"></td>
+            <td data-bind="type"></td>
+            <td data-bind="target.id"></td>
+            <td data-bind="logger.id"></td>
+            <script>
+              {
+                const tr = document.currentScript.parentElement
+                const adapter = tr.data
+                for (const el of tr.querySelectorAll('[data-bind]')) {
+                  const key = el.getAttribute('data-bind')
+                  const value = key.split('.').reduce((v, k) => v?.[k], adapter)
+                  el.textContent = value
+                }
+              }
+            </script>
+          </tr>
+        </template>
+        <script>
+          {
+            const tbody = document.currentScript.parentElement
+            const template = tbody.querySelector('template')
+            const dmLogger = document.querySelector('dm-logger')
+            dmLogger.addEventListener('change', () => {
+              tbody.replaceChildren()
+              for (const adapter of dmLogger.adapters) {
+                const fragment = template.content.cloneNode(true)
+                for (const el of fragment.querySelectorAll('[data-bind]')) {
+                  el.data = adapter
+                }
+                tbody.appendChild(fragment)
+              }
+            })
+          }
+        </script>
+      </tbody>
+    </table>
+    <table>
+      <caption>Loggers</caption>
+      <thead>
+        <tr>
+          <th>id</th>
+          <th>type</th>
+          <th>chunks</th>
+          <th>bytes</th>
+          <td></td>
+        </tr>
+      </thead>
+      <tbody>
+        <template>
+          <tr data-bind>
+            <td data-bind="id"></td>
+            <td data-bind="type"></td>
+            <td id="chunks">30</td>
+            <td id="bytes">356</td>
+            <td>
+              <button>preview
+                <script>
+                  {
+                    const button = document.currentScript.parentElement
+                    const decoder = new TextDecoder()
+                    button.addEventListener('click', () => {
+                      const tr = button.closest('tr')
+                      const logger = tr.data
+                      const editor = document.querySelector('dm-monaco-editor')
+                      editor.editor.setValue(logger.chunks.reduce((acc, chunk) => {
+                        return acc + decoder.decode(chunk)
+                      }, ''))
+                    })
+                    /**
+const lastLine = model.getLineCount();
+const lastColumn = model.getLineMaxColumn(lastLine);
+
+model.applyEdits([
+  {
+    range: new monaco.Range(
+      lastLine,
+      lastColumn,
+      lastLine,
+      lastColumn
+    ),
+    text: chunk,
+  }
+]);
+                     */
+                  }
+                </script>
+              </button>
+              <button>download
+                <script>
+                  {
+                    const button = document.currentScript.parentElement
+                    button.addEventListener('click', () => {
+                      const tr = button.closest('tr')
+                      const logger = tr.data
+                      const blob = new Blob(logger.chunks)
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `${logger.type ?? 'log'}.log`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    })
+                  }
+                </script>
+              </button>
+            </td>
+            <script>
+              {
+                const tr = document.currentScript.parentElement
+                const indexTd = tr.querySelector('#index')
+                const chunksTd = tr.querySelector('#chunks')
+                const bytesTd = tr.querySelector('#bytes')
+                const logger = tr.data
+                for (const el of tr.querySelectorAll('[data-bind]')) {
+                  const key = el.getAttribute('data-bind')
+                  if (key in logger) el.textContent = logger[key]
+                }
+                const update = () => {
+                  chunksTd.textContent = logger.chunks.length
+                  bytesTd.textContent = logger.chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
+                }
+                logger.addEventListener('change', update)
+                update()
+              }
+            </script>
+          </tr>
+        </template>
+        <script>
+          {
+            const tbody = document.currentScript.parentElement
+            const template = tbody.querySelector('template')
+            const dmLogger = document.querySelector('dm-logger')
+            dmLogger.addEventListener('change', () => {
+              tbody.replaceChildren()
+              for (const logger of dmLogger.loggers) {
+                const fragment = template.content.cloneNode(true)
+                for (const el of fragment.querySelectorAll('[data-bind]')) {
+                  el.data = logger
+                }
+                tbody.appendChild(fragment)
+              }
+            })
+          }
+        </script>
+      </tbody>
+    </table>
+    <select id="logger-type">
+      <option value="">ArrayBuffer</option>
+      <option value="text">Text</option>
+    </select>
+    <button>create
       <script>
-        class DmLogger extends EventTarget {
-          /** @type { ArrayBuffer[] } */
-          chunks = []
-
-          /** @type { (text: ArrayBuffer) => void } */
-          write(chunk) {
-            this.chunks.push(chunk)
-            this.dispatchEvent(new MessageEvent('message', { data: chunk }))
-          }
-        }
-
-        class DmStringLogger extends DmLogger {
-          static encoder = new TextEncoder()
-          /** @type { (text: string) => void } */
-          write(text) {
-            const encoded = DmStringLogger.encoder.encode(text)
-            const hex = [...encoded].map(b => b.toString(16).padStart(2, '0')).join(' ')
-            console.debug(`${hex} | ${JSON.stringify(text)}`)
-            super.write(encoded.buffer)
-          }
-        }
-
-        {
-          const logger = new DmStringLogger()
-          addEventListener('load', () => {
-            const term = document.querySelector('dm-terminal')
-            customElements.whenDefined('dm-terminal').then(() => {
-              term.onData(d => d === '\r' ? term.write('\r\n') : term.write(d))
-
-              term.onData(data => logger.write(data))
-            })
-
-            const preview = document.querySelector('dm-monaco-editor')
-            customElements.whenDefined('dm-monaco-editor').then(() => {
-              const decoder = new TextDecoder()
-              logger.addEventListener('message', e => {
-                const text = decoder.decode(e.data)
-                preview.editor.setValue(preview.editor.getValue() + text)
-              })
-            })
-          })
-
-          const button = document.currentScript.parentElement
-          Promise.resolve().then(async () => {
-            const db = await new Promise((resolve, reject) => {
-              const req = indexedDB.open('dm-logger', 1)
-              req.onupgradeneeded = () => {
-                const db = req.result
-                db.createObjectStore('config')
-              }
-              req.onsuccess = () => resolve(req.result)
-              req.onerror = () => reject(req.error)
-            })
-            const dir = await new Promise((resolve, reject) => {
-              const tx = db.transaction('config', 'readonly')
-              const store = tx.objectStore('config')
-              const req = store.get('default')
-              req.onsuccess = () => resolve(req.result)
-              req.onerror = () => reject(req.error)
-            })
-            await db.close()
-
-            if (dir) {
-              const dirHandle = dir
-              console.log(dirHandle.name)
-              const permission = await dirHandle.queryPermission({ mode: "readwrite" })
-              console.log(permission)
-              if (permission !== "granted") {
-                window.addEventListener('pointerdown', async () => {
-                  const result =
-                    await dirHandle.requestPermission({
-                      mode: "readwrite",
-                    });
-
-                  if (result !== "granted") {
-                    throw new Error("permission denied");
-                  }
-                  console.log(await dirHandle.queryPermission({ mode: "readwrite" }))
-                }, { once: true })
-              }
-              if (permission === "granted") {
-                button.textContent = dirHandle.name
-                const files = []
-                for await (const entry of dirHandle.values()) {
-                  if (entry.kind === 'file') {
-                    files.push(entry.name)
-                  }
-                }
-                console.log(files)
-              }
-            }
-          })
-
-          button.addEventListener('click', async () => {
-            const dirHandle = await window.showDirectoryPicker()
-            console.log(dirHandle.name)
-            console.log(await dirHandle.queryPermission({ mode: "readwrite" }))
-            await new Promise((resolve, reject) => {
-              const req = indexedDB.open('dm-logger', 1)
-              req.onsuccess = () => {
-                const db = req.result
-                const tx = db.transaction('config', 'readwrite')
-                const store = tx.objectStore('config')
-                const putReq = store.put(dirHandle, 'default')
-                putReq.onsuccess = () => {
-                  resolve()
-                  db.close()
-                }
-                putReq.onerror = () => reject(putReq.error)
-              }
-              req.onerror = () => reject(req.error)
-            })
-            button.textContent = dirHandle.name
-          })
-        }
+        document.currentScript.parentElement.addEventListener('click', () => {
+          const logger = document.querySelector('dm-logger')
+          const type = document.querySelector('#logger-type').value
+          const newLogger = logger.createLogger(type || null)
+          console.log(newLogger)
+        })
       </script>
     </button>
   </fieldset>
   <fieldset>
-    <legend>Terminal</legend>
-    <dm-terminal logger></dm-terminal>
+    <template>
+      <fieldset>
+        <legend>terminal</legend>
+        <dm-terminal></dm-terminal>
+        <script>
+          {
+            const dmTerminal = document.currentScript.parentElement.querySelector('dm-terminal')
+            customElements.whenDefined('dm-terminal').then(() => {
+              dmTerminal.onData(d => dmTerminal.write(d === '\r' ? '\r\n' : d))
+            })
+          }
+        </script>
+      </fieldset>
+    </template>
+    <legend>Terminal <button>create
+        <script>
+          {
+            const container = document.currentScript.closest('fieldset')
+            const template = container.querySelector('template')
+            const button = document.currentScript.parentElement
+            button.addEventListener('click', () => {
+              const fragment = template.content.cloneNode(true)
+              const dmTerminal = fragment.querySelector('dm-terminal')
+              dmTerminal.id ||= crypto.randomUUID()
+              container.appendChild(fragment)
+            })
+            button.click()
+          }
+        </script>
+      </button></legend>
   </fieldset>
   <fieldset>
     <legend>Preview</legend>
