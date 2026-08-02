@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+
+<body style='margin:0'>
+  <iframe id='app' src='./' allow='clipboard-read; clipboard-write' style='border:0;width:100vw;height:100vh'></iframe>
+
+  <script>
+    {
+      /*
+       * Message Protocol
+       *
+       * type WrapperMessage =
+       *  | { type: 'wrapper:watch' }
+       *  | { type: 'wrapper:stop' }
+       *  | { type: 'wrapper:getLocation' }
+       *  | { type: 'wrapper:locationChanged', href: string }
+       *  | { type: 'wrapper:getLocationResult', href: string }
+       *
+       * Parent -> Wrapper
+       *  | { type: 'wrapper:watch' }
+       *  | { type: 'wrapper:stop' }
+       *  | { type: 'wrapper:getLocation' }
+       *
+       * Wrapper -> Parent
+       *  | { type: 'wrapper:locationChanged', href: string }
+       *  | { type: 'wrapper:getLocationResult', href: string }
+       *
+       * Notes
+       *
+       * - wrapper:watch は冪等。
+       * - wrapper:watch 受信時に現在URLを即時通知する。
+       * - wrapper:locationChanged は URL が実際に変化した場合のみ送信する。
+       * - href は iframe.contentWindow.location.href の値。
+       */
+
+      const frame = document.getElementById('app')
+      let post = null
+      window.addEventListener('message', (ev) => {
+        switch (ev.data?.type) {
+          case 'wrapper:watch':
+            let last = null
+            post = () => {
+              const href = frame.contentWindow.location.href
+              if (href === last) return
+              last = href
+              ev.source?.postMessage({
+                type: 'wrapper:locationChanged',
+                href
+              }, ev.origin)
+            }
+            watch()
+            post()
+            break
+          case 'wrapper:stop':
+            post = null
+            stop()
+            break
+          case 'wrapper:getLocation':
+            ev.source?.postMessage({
+              type: 'wrapper:getLocationResult',
+              href: frame.contentWindow.location.href
+            }, ev.origin)
+            break
+        }
+      })
+
+      let scheduled = false
+      const check = () => {
+        if (scheduled) return
+        scheduled = true
+        queueMicrotask(() => {
+          scheduled = false
+          post?.()
+        })
+      }
+
+      let observedWindow = null
+      const loadListener = () => {
+        const win = frame.contentWindow
+        if (win === observedWindow) return
+        observedWindow = win
+        if ('navigation' in win) win.navigation.addEventListener('navigate', check)
+        win.addEventListener('popstate', check)
+        win.addEventListener('hashchange', check)
+
+        const pushState = win.history.pushState
+        win.history.pushState = function (...args) {
+          const r = pushState.apply(this, args)
+          check()
+          return r
+        }
+
+        const replaceState = win.history.replaceState
+        win.history.replaceState = function (...args) {
+          const r = replaceState.apply(this, args)
+          check()
+          return r
+        }
+
+        check()
+      }
+
+      function watch() {
+        stop()
+        frame.addEventListener('load', loadListener)
+        loadListener()
+      }
+      function stop() {
+        frame.removeEventListener('load', loadListener)
+        const win = frame.contentWindow
+        if ('navigation' in win) win.navigation.removeEventListener('navigate', check)
+        win.removeEventListener('popstate', check)
+        win.removeEventListener('hashchange', check)
+        observedWindow = null
+      }
+    }
+  </script>
+
+</body>
+
+</html>
