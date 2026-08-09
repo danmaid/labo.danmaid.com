@@ -17,9 +17,11 @@
       border-bottom: 1px solid;
     }
   </style>
+  <link rel="stylesheet" href="css/full-screen.css">
+  <script src="js/dm-windows.js"></script>
 </head>
 
-<body>
+<body class="full-screen" style="padding: 8px">
   <table>
     <thead>
       <tr>
@@ -128,6 +130,8 @@
     })
 
   </script>
+  <dm-windows><dm-window></dm-window></dm-windows>
+  <div style="position: absolute; top: 0; right: 0; background: #FF0000A0; width: 200px; height: 100%">Window Manager</div>
 </body>
 
 </html>
