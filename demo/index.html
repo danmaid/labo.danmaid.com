@@ -8,10 +8,18 @@
     :root {
       color-scheme: dark;
     }
+
+    dm-window {
+      width: 640px;
+      height: 480px;
+    }
   </style>
+  <link rel="stylesheet" href="css/full-screen.css">
+  <script src="js/dm-windows.js"></script>
+  <script src="js/dm-terminal.mjs" type="module"></script>
 </head>
 
-<body>
+<body class="full-screen" style="padding: 8px">
   <table>
     <tbody>
       <tr>
@@ -23,51 +31,143 @@
         <td><a href="https://[2400:4052:2962:5e00:fd90::201]" target="_blank">2400:4052:2962:5e00:fd90::201</a></td>
       </tr>
       <tr>
-        <td>ISE 3.5 PPAN (Upgraded from 3.4)</td>
-        <td><a href="https://[2400:4052:2962:5e00:fd90::301]" target="_blank">2400:4052:2962:5e00:fd90::301</a></td>
-      </tr>
-      <tr>
-        <td>ISE 3.5 Node 1 (Upgraded from 3.4)</td>
+        <td>ISE 3.5 Node 1 (Upgraded from 3.4) PSN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::311]" target="_blank">2400:4052:2962:5e00:fd90::311</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 1 (Upgraded from 3.4) PSN',
+          type: 'cml',
+          host: 'cml3.danmaid.com',
+          lab: '5daa9de3-9216-46ab-a014-048adaa155b5',
+          node: 'e4834ba8-6352-4f77-ac35-7afa0588599d'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 Node 2 (Upgraded from 3.4)</td>
+        <td>ISE 3.5 Node 2 (Upgraded from 3.4) PSN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::312]" target="_blank">2400:4052:2962:5e00:fd90::312</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 2 (Upgraded from 3.4) PSN',
+          type: 'cml',
+          host: 'cml3.danmaid.com',
+          lab: '5daa9de3-9216-46ab-a014-048adaa155b5',
+          node: 'f87acf91-3c8b-432d-94d7-0ea1ff7327e6'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 Node 3 (Upgraded from 3.4)</td>
+        <td>ISE 3.5 Node 3 (Upgraded from 3.4) PPAN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::313]" target="_blank">2400:4052:2962:5e00:fd90::313</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 3 (Upgraded from 3.4) PPAN',
+          type: 'cml',
+          host: 'cml3.danmaid.com',
+          lab: '5daa9de3-9216-46ab-a014-048adaa155b5',
+          node: 'fc5111cf-eb03-433c-9389-8d005d8efb1a'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 Node 4 (Upgraded from 3.4)</td>
+        <td>ISE 3.5 Node 4 (Upgraded from 3.4) SPAN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::314]" target="_blank">2400:4052:2962:5e00:fd90::314</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 4 (Upgraded from 3.4) SPAN',
+          type: 'cml',
+          host: 'cml3.danmaid.com',
+          lab: '5daa9de3-9216-46ab-a014-048adaa155b5',
+          node: '0541efb0-7f0f-4fbf-ae5a-24e7b7647eb4'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 PPAN (Clean Install)</td>
-        <td><a href="https://[2400:4052:2962:5e00:fd90::303]" target="_blank">2400:4052:2962:5e00:fd90::303</a></td>
-      </tr>
-      <tr>
-        <td>ISE 3.5 Node 1 (Clean Install)</td>
+        <td>ISE 3.5 Node 1 (Clean Install) PPAN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::331]" target="_blank">2400:4052:2962:5e00:fd90::331</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 1 (Clean Install) PPAN',
+          type: 'cml',
+          host: 'cml.danmaid.com',
+          lab: '8ca5d556-5f48-4930-b19e-e9d0249b22d3',
+          node: '0e77e123-540f-4364-9ee3-5e988ee28549'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 Node 2 (Clean Install)</td>
+        <td>ISE 3.5 Node 2 (Clean Install) PSN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::332]" target="_blank">2400:4052:2962:5e00:fd90::332</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 2 (Clean Install) PSN',
+          type: 'cml',
+          host: 'cml.danmaid.com',
+          lab: '8ca5d556-5f48-4930-b19e-e9d0249b22d3',
+          node: '785092ae-49e2-461e-997e-cbcf45132505'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 Node 3 (Clean Install)</td>
+        <td>ISE 3.5 Node 3 (Clean Install) PSN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::333]" target="_blank">2400:4052:2962:5e00:fd90::333</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 3 (Clean Install) PSN',
+          type: 'cml',
+          host: 'cml.danmaid.com',
+          lab: '8ca5d556-5f48-4930-b19e-e9d0249b22d3',
+          node: '6c16343c-7e2c-4bcb-b178-770646bb34f4'
+        })">console</button></td>
       </tr>
       <tr>
-        <td>ISE 3.5 Node 4 (Clean Install)</td>
+        <td>ISE 3.5 Node 4 (Clean Install) SPAN</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::334]" target="_blank">2400:4052:2962:5e00:fd90::334</a></td>
+        <td><button onclick="openConsole({
+          title: 'ISE 3.5 Node 4 (Clean Install) SPAN',
+          type: 'cml',
+          host: 'cml.danmaid.com',
+          lab: '8ca5d556-5f48-4930-b19e-e9d0249b22d3',
+          node: '51187a45-610f-470c-a610-aa3cab6ecd67'
+        })">console</button></td>
       </tr>
       <tr>
         <td>C9800-CL (WLC)</td>
         <td><a href="https://[2400:4052:2962:5e00:fd90::401]" target="_blank">2400:4052:2962:5e00:fd90::401</a></td>
+        <td><button onclick="openConsole({
+          title: 'C9800-CL (WLC)',
+          type: 'cml',
+          host: 'cml3.danmaid.com',
+          lab: '5daa9de3-9216-46ab-a014-048adaa155b5',
+          node: '15a036df-325e-4b42-958b-319cd27a07e9'
+        })">console</button></td>
       </tr>
     </tbody>
   </table>
+  <dm-windows></dm-windows>
+  <script>
+    const windows = document.querySelector('dm-windows')
+
+    async function openConsole(args) {
+      const { title, type } = args
+      let win = windows.querySelector(`dm-window[title="${title}"]`)
+      if (win) return win.focus()
+      win = document.createElement('dm-window')
+      win.setAttribute('title', title)
+      const term = document.createElement('dm-terminal')
+      win.appendChild(term)
+      if (type === 'cml') await openCmlConsole(args, term)
+      windows.appendChild(win)
+    }
+
+    async function openCmlConsole({ host, lab, node }, term) {
+      const token = await fetch(`https://${host}/api/v0/authenticate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: 'kanikani' }),
+      }).then(r => r.json())
+      const key = await fetch(`https://${host}/api/v0/labs/${lab}/nodes/${node}/keys/console?line=0`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json())
+      const ws = new WebSocket(`wss://${host}/ws/dispatch/frontend/console?uuid=${key}`)
+      ws.binaryType = 'arraybuffer'
+      ws.addEventListener('open', () => console.log('WebSocket connection opened'))
+      // ws.addEventListener('message', (e) => console.log('Received message:', e.data))
+      ws.addEventListener('close', () => console.log('WebSocket connection closed'))
+      ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
+
+      ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
+      ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+      term.onData(data => ws.send(data))
+    }
+  </script>
 </body>
 
 </html>
