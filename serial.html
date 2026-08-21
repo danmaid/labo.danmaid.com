@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Serial API Test</title>
+  <link rel="stylesheet" href="./css/full-screen.css" />
+  <script type="module" src="./js/dm-terminal.mjs"></script>
+</head>
+
+<body class="full-screen" style="display: flex; flex-direction: column;">
+  <button id="connect">Connect</button>
+  <dm-terminal id="terminal"></dm-terminal>
+
+  <script>
+    document.getElementById("connect").onclick = async () => {
+      const port = await navigator.serial.requestPort()
+      await port.open({ baudRate: 9600 })
+      const term = document.getElementById("terminal")
+      term.readable.pipeTo(port.writable)
+      port.readable.pipeTo(term.writable)
+    }
+  </script>
+</body>
+
+</html>
