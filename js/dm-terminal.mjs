@@ -15,12 +15,36 @@ customElements.define('dm-terminal', class DmTerminal extends HTMLElement {
     this.terminal.loadAddon(this.fit)
   }
 
+  #resizeObserver = new ResizeObserver(() => this.fit.fit())
   connectedCallback() {
     this.terminal.open(this)
-    new ResizeObserver(() => this.fit.fit()).observe(this)
+    this.#resizeObserver.observe(this)
     this.fit.fit()
+  }
+  disconnectedCallback() {
+    this.#resizeObserver.disconnect()
   }
 
   write = (data) => this.terminal.write(data)
   onData = (callback) => this.terminal.onData(callback)
+
+  #encoder = new TextEncoder()
+  get writable() {
+    return new WritableStream({
+      write: (chunk) => this.terminal.write(chunk)
+    })
+  }
+  get readable() {
+    let disposable = null
+    return new ReadableStream({
+      start: (controller) => {
+        disposable = this.terminal.onData(data =>
+          controller.enqueue(this.#encoder.encode(data)))
+      },
+      cancel: () => {
+        disposable?.dispose()
+        disposable = null
+      }
+    })
+  }
 })
