@@ -6,6 +6,7 @@
   <title>Serial API Test</title>
   <link rel="stylesheet" href="./css/full-screen.css" />
   <script type="module" src="./js/dm-terminal.mjs"></script>
+  <link rel="manifest" href="./manifest.webmanifest" />
 </head>
 
 <body class="full-screen" style="display: flex; flex-direction: column;">
@@ -19,6 +20,9 @@
       const term = document.getElementById("terminal")
       term.readable.pipeTo(port.writable)
       port.readable.pipeTo(term.writable)
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
     }
   </script>
 </body>
