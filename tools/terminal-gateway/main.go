@@ -8,15 +8,89 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 
-	"github.com/creack/pty"
+	"github.com/aymanbagabas/go-pty"
 	"github.com/gorilla/websocket"
 )
+
+func main() {
+	mux := newMux()
+
+	log.Printf("terminal-gateway listening on :6888")
+	log.Fatal(http.ListenAndServe(":6888", withCORS(mux)))
+}
+
+func newMux() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/sessions", createSessionHandler)
+	mux.HandleFunc("/sessions/", sessionHandler)
+
+	return mux
+}
+
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		log.Printf("request origin=%s method=%s path=%s", origin, r.Method, r.URL.Path)
+		if origin == "https://www.labo.danmaid.com" || origin == "http://127.0.0.1:5500" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		}
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func createSessionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req CreateSessionRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	session, err := NewSSHSession(req.Host, req.Port, req.User)
+	if err != nil {
+		log.Printf("NewSSHSession failed: %T %v", err, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id := registerSession(session)
+
+	go func() {
+		err := session.Wait()
+
+		log.Printf(
+			"session closed id=%s err=%v",
+			id,
+			err,
+		)
+
+		removeSession(id)
+
+		_ = session.Close()
+	}()
+
+	writeJSON(w, map[string]string{
+		"id": id,
+	})
+}
 
 //
 // Session Interfaces
@@ -39,54 +113,71 @@ type Waitable interface {
 //
 
 type SSHSession struct {
-	cmd    *exec.Cmd
-	pty    *os.File
+	cmd    *pty.Cmd
+	pty    pty.Pty
 	cancel context.CancelFunc
 }
 
-func NewSSHSession(host string) (*SSHSession, error) {
+func (s *SSHSession) Read(b []byte) (int, error) {
+	return s.pty.Read(b)
+}
+
+func (s *SSHSession) Write(b []byte) (int, error) {
+	return s.pty.Write(b)
+}
+
+func (s *SSHSession) Close() error {
+	s.cancel()
+	return s.pty.Close()
+}
+
+func NewSSHSession(host string, port uint16, user string) (*SSHSession, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cmd := exec.CommandContext(ctx, "ssh", host)
+	target := host
 
-	ptmx, err := pty.Start(cmd)
+	if user != "" {
+		target = user + "@" + host
+	}
+
+	args := []string{
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+	}
+
+	if port > 0 {
+		args = append(
+			args,
+			"-p",
+			strconv.Itoa(int(port)),
+		)
+	}
+
+	args = append(args, target)
+
+	p, err := pty.New()
 	if err != nil {
-		cancel()
+		return nil, err
+	}
+
+	cmd := p.CommandContext(ctx, "ssh", args...)
+	log.Printf("cmd=%v", cmd.Args)
+	if err := cmd.Start(); err != nil {
+		p.Close()
 		return nil, err
 	}
 
 	return &SSHSession{
 		cmd:    cmd,
-		pty:    ptmx,
+		pty:    p,
 		cancel: cancel,
 	}, nil
 }
 
-func (s *SSHSession) Read(p []byte) (int, error) {
-	return s.pty.Read(p)
-}
-
-func (s *SSHSession) Write(p []byte) (int, error) {
-	return s.pty.Write(p)
-}
-
-func (s *SSHSession) Close() error {
-	s.cancel()
-
-	if s.cmd.Process != nil {
-		_ = s.cmd.Process.Signal(syscall.SIGTERM)
-	}
-
-	return s.pty.Close()
-}
-
 func (s *SSHSession) Resize(cols, rows uint16) error {
-	return pty.Setsize(
-		s.pty,
-		&pty.Winsize{
-			Cols: cols,
-			Rows: rows,
-		},
+	return s.pty.Resize(
+		int(cols),
+		int(rows),
 	)
 }
 
@@ -152,6 +243,8 @@ func removeSession(id string) {
 
 type CreateSessionRequest struct {
 	Host string `json:"host"`
+	Port uint16 `json:"port"`
+	User string `json:"user"`
 }
 
 type ResizeRequest struct {
@@ -205,46 +298,6 @@ func sessionIDFromPath(path string) (string, string, bool) {
 //
 // Handlers
 //
-
-func createSessionHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req CreateSessionRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	session, err := NewSSHSession(req.Host)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	id := registerSession(session)
-
-	go func() {
-		err := session.Wait()
-
-		log.Printf(
-			"session closed id=%s err=%v",
-			id,
-			err,
-		)
-
-		removeSession(id)
-
-		_ = session.Close()
-	}()
-
-	writeJSON(w, map[string]string{
-		"id": id,
-	})
-}
 
 func deleteSessionHandler(w http.ResponseWriter, r *http.Request, id string) {
 	if r.Method != http.MethodDelete {
@@ -387,24 +440,4 @@ func sessionHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
-}
-
-//
-// Main
-//
-
-func main() {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/sessions", createSessionHandler)
-	mux.HandleFunc("/sessions/", sessionHandler)
-
-	server := &http.Server{
-		Addr:    ":8080",
-		Handler: mux,
-	}
-
-	log.Printf("terminal-gateway listening on %s", server.Addr)
-
-	log.Fatal(server.ListenAndServe())
 }
