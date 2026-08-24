@@ -19,6 +19,7 @@
   </style>
   <link rel="stylesheet" href="css/full-screen.css">
   <script src="js/dm-windows.js"></script>
+  <script type="module" src="js/dm-terminal.mjs"></script>
 </head>
 
 <body class="full-screen" style="padding: 8px">
@@ -50,6 +51,7 @@
           <td data-text="lab_id"></td>
           <td data-text="lab.lab_title"></td>
           <td data-text="i"></td>
+          <td id="console"></td>
         </tr>
       </template>
     </tbody>
@@ -147,11 +149,35 @@
           item.lab = lab
 
           const fragment = cmlTemplate.content.cloneNode(true)
+          for (const el of fragment.querySelectorAll('[data-bind]')) {
+            el.data = item
+          }
           for (const el of fragment.querySelectorAll('[data-text]')) {
             const key = el.getAttribute('data-text')
             const value = key?.split('.').reduce((o, k) => o?.[k], item)
             if (value != null) el.textContent = value
           }
+
+          // console
+          const consoleTd = fragment.querySelector('#console')
+          if (item.serial_consoles) for (const serial of item.serial_consoles) {
+            const { console_key, label } = serial
+            const button = document.createElement('button')
+            button.textContent = label
+            button.addEventListener('click', async () => {
+              const ws = new WebSocket(`wss://${cml.host}/ws/dispatch/frontend/console?uuid=${console_key}`)
+              ws.binaryType = 'arraybuffer'
+              ws.addEventListener('open', () => ws.send(JSON.stringify({ token })))
+              await new Promise(resolve => ws.addEventListener('open', () => resolve(), { once: true }))
+              const term = document.createElement('dm-terminal')
+              ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+              term.onData(data => ws.send(data))
+              const windows = document.querySelector('dm-windows')
+              windows.open(term, { title: `${item.label} ${label}` })
+            })
+            consoleTd.appendChild(button)
+          }
+
           cmlTbody.appendChild(fragment)
         }
       })
