@@ -22,40 +22,42 @@
   <script type="module" src="js/dm-terminal.mjs"></script>
 </head>
 
-<body class="full-screen" style="padding: 8px">
-  <table>
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Service</th>
-        <th>Hostname</th>
-        <th>IPv4</th>
-        <th>IPv6</th>
-      </tr>
-    </thead>
-    <tbody>
-      <template>
+<body class="full-screen" style="padding: 8px; display: flex; flex-direction: column;">
+  <div style="flex: 1; overflow: auto;">
+    <table>
+      <thead style="position: sticky; top: 0; background-color: canvas;">
         <tr>
-          <td data-text="title"></td>
-          <td><dm-service data-bind></dm-service></td>
-          <td><dm-hostname data-bind></dm-hostname></td>
-          <td><dm-ip data-bind family="ipv4"></dm-ip></td>
-          <td><dm-ip data-bind family="ipv6"></dm-ip></td>
+          <th>Title</th>
+          <th>Service</th>
+          <th>Hostname</th>
+          <th>IPv4</th>
+          <th>IPv6</th>
         </tr>
-      </template>
-      <template id="cml">
-        <tr>
-          <td data-text="label"></td>
-          <td data-text="cml"></td>
-          <td data-text="state"></td>
-          <td data-text="lab_id"></td>
-          <td data-text="lab.lab_title"></td>
-          <td data-text="i"></td>
-          <td id="console"></td>
-        </tr>
-      </template>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <template>
+          <tr>
+            <td data-text="title"></td>
+            <td><dm-service data-bind></dm-service></td>
+            <td><dm-hostname data-bind></dm-hostname></td>
+            <td><dm-ip data-bind family="ipv4"></dm-ip></td>
+            <td><dm-ip data-bind family="ipv6"></dm-ip></td>
+          </tr>
+        </template>
+        <template id="cml">
+          <tr>
+            <td data-text="label"></td>
+            <td data-text="cml"></td>
+            <td data-text="state"></td>
+            <td data-text="lab_id"></td>
+            <td data-text="lab.lab_title"></td>
+            <td data-text="i"></td>
+            <td id="console"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
   <fieldset>
     <legend>cml.danmaid.com</legend>
     <label>Username: <input type="text" name="username"></label>
