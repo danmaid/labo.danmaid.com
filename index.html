@@ -15,6 +15,7 @@
     td {
       border-right: 1px solid;
       border-bottom: 1px solid;
+      white-space: nowrap;
     }
   </style>
   <link rel="stylesheet" href="css/full-screen.css">
@@ -55,70 +56,143 @@
             <td id="console"></td>
           </tr>
         </template>
+        <template id="sdwan">
+          <tr>
+            <td data-text="host-name"></td>
+            <td data-text="status"></td>
+            <td data-text="site-name"></td>
+            <td data-text="device-model"></td>
+            <td data-text="version"></td>
+            <td data-text="uuid"></td>
+            <td id="console"></td>
+          </tr>
+        </template>
       </tbody>
     </table>
   </div>
-  <fieldset>
-    <legend>cml.danmaid.com</legend>
-    <label>Username: <input type="text" name="username"></label>
-    <label>Password: <input type="password" name="password"></label>
-    <button>Save</button>
-    <script>
-      {
-        const fieldset = document.currentScript.parentElement
-        const legend = fieldset.querySelector('legend')
-        const usernameInput = fieldset.querySelector('input[name="username"]')
-        const passwordInput = fieldset.querySelector('input[name="password"]')
-        const cml = new URL(`https://${legend.textContent}`)
-        fieldset.querySelector('button').addEventListener('click', () => {
-          localStorage.setItem(`credentials/${cml}/username`, usernameInput.value)
-          localStorage.setItem(`credentials/${cml}/password`, passwordInput.value)
-          location.reload()
-        })
-      }
-    </script>
-  </fieldset>
-  <fieldset>
-    <legend>cml2.danmaid.com</legend>
-    <label>Username: <input type="text" name="username"></label>
-    <label>Password: <input type="password" name="password"></label>
-    <button>Save</button>
-    <script>
-      {
-        const fieldset = document.currentScript.parentElement
-        const legend = fieldset.querySelector('legend')
-        const usernameInput = fieldset.querySelector('input[name="username"]')
-        const passwordInput = fieldset.querySelector('input[name="password"]')
-        const cml = new URL(`https://${legend.textContent}`)
-        fieldset.querySelector('button').addEventListener('click', () => {
-          localStorage.setItem(`credentials/${cml}/username`, usernameInput.value)
-          localStorage.setItem(`credentials/${cml}/password`, passwordInput.value)
-          location.reload()
-        })
-      }
-    </script>
-  </fieldset>
-  <fieldset>
-    <legend>cml3.danmaid.com</legend>
-    <label>Username: <input type="text" name="username"></label>
-    <label>Password: <input type="password" name="password"></label>
-    <button>Save</button>
-    <script>
-      {
-        const fieldset = document.currentScript.parentElement
-        const legend = fieldset.querySelector('legend')
-        const usernameInput = fieldset.querySelector('input[name="username"]')
-        const passwordInput = fieldset.querySelector('input[name="password"]')
-        const cml = new URL(`https://${legend.textContent}`)
-        fieldset.querySelector('button').addEventListener('click', () => {
-          localStorage.setItem(`credentials/${cml}/username`, usernameInput.value)
-          localStorage.setItem(`credentials/${cml}/password`, passwordInput.value)
-          location.reload()
-        })
-      }
-    </script>
-  </fieldset>
+  <div style="display: flex; flex-wrap: wrap;">
+    <fieldset style="flex: 0 0 auto;">
+      <legend>cml.danmaid.com</legend>
+      <label>Username: <input type="text" name="username"></label>
+      <label>Password: <input type="password" name="password"></label>
+      <button>Save</button>
+      <script>
+        {
+          const fieldset = document.currentScript.parentElement
+          const legend = fieldset.querySelector('legend')
+          const usernameInput = fieldset.querySelector('input[name="username"]')
+          const passwordInput = fieldset.querySelector('input[name="password"]')
+          const cml = new URL(`https://${legend.textContent}`)
+          fieldset.querySelector('button').addEventListener('click', () => {
+            localStorage.setItem(`credentials/${cml}/username`, usernameInput.value)
+            localStorage.setItem(`credentials/${cml}/password`, passwordInput.value)
+            location.reload()
+          })
+        }
+      </script>
+    </fieldset>
+    <fieldset style="flex: 0 0 auto;">
+      <legend>cml2.danmaid.com</legend>
+      <label>Username: <input type="text" name="username"></label>
+      <label>Password: <input type="password" name="password"></label>
+      <button>Save</button>
+      <script>
+        {
+          const fieldset = document.currentScript.parentElement
+          const legend = fieldset.querySelector('legend')
+          const usernameInput = fieldset.querySelector('input[name="username"]')
+          const passwordInput = fieldset.querySelector('input[name="password"]')
+          const cml = new URL(`https://${legend.textContent}`)
+          fieldset.querySelector('button').addEventListener('click', () => {
+            localStorage.setItem(`credentials/${cml}/username`, usernameInput.value)
+            localStorage.setItem(`credentials/${cml}/password`, passwordInput.value)
+            location.reload()
+          })
+        }
+      </script>
+    </fieldset>
+    <fieldset style="flex: 0 0 auto;">
+      <legend>cml3.danmaid.com</legend>
+      <label>Username: <input type="text" name="username"></label>
+      <label>Password: <input type="password" name="password"></label>
+      <button>Save</button>
+      <script>
+        {
+          const fieldset = document.currentScript.parentElement
+          const legend = fieldset.querySelector('legend')
+          const usernameInput = fieldset.querySelector('input[name="username"]')
+          const passwordInput = fieldset.querySelector('input[name="password"]')
+          const cml = new URL(`https://${legend.textContent}`)
+          fieldset.querySelector('button').addEventListener('click', () => {
+            localStorage.setItem(`credentials/${cml}/username`, usernameInput.value)
+            localStorage.setItem(`credentials/${cml}/password`, passwordInput.value)
+            location.reload()
+          })
+        }
+      </script>
+    </fieldset>
+    <fieldset style="flex: 0 0 auto;">
+      <legend>manager.sdwan.danmaid.com</legend>
+      <label>Username: <input type="text" name="username"></label>
+      <label>Password: <input type="password" name="password"></label>
+      <button>Save</button>
+      <script>
+        {
+          const fieldset = document.currentScript.parentElement
+          const legend = fieldset.querySelector('legend')
+          const usernameInput = fieldset.querySelector('input[name="username"]')
+          const passwordInput = fieldset.querySelector('input[name="password"]')
+          const sdwan = `https://${legend.textContent}`
+          fieldset.querySelector('button').addEventListener('click', () => {
+            localStorage.setItem(`credentials/${sdwan}/username`, usernameInput.value)
+            localStorage.setItem(`credentials/${sdwan}/password`, passwordInput.value)
+            location.reload()
+          })
+        }
+      </script>
+    </fieldset>
+  </div>
   <script>
+    {
+      const template = document.querySelector('template#sdwan')
+      const tbody = template.parentElement
+      // Cisco SD-WAN Manager 20.15
+      const sdwan = 'https://manager.sdwan.danmaid.com'
+      const username = localStorage.getItem(`credentials/${sdwan}/username`)
+      const password = localStorage.getItem(`credentials/${sdwan}/password`)
+      if (!username || !password) throw new Error(`Credentials for ${sdwan} is not found in localStorage. Please set them first.`)
+      fetch(sdwan + '/dataservice/client/token', { credentials: 'include' }).then(async r => {
+        if (r.ok) return r.text()
+        await fetch(sdwan + '/j_security_check', {
+          method: 'POST',
+          credentials: 'include',
+          body: new URLSearchParams({ j_username: username, j_password: password }),
+        })
+        return fetch(sdwan + '/dataservice/client/token', { credentials: 'include' })
+          .then(r => r.text())
+      }).then(async token => {
+        console.log(`Authenticated to ${sdwan} with token: ${token}`)
+        const devices = await fetch(sdwan + '/dataservice/device', {
+          credentials: 'include',
+          headers: { 'X-XSRF-TOKEN': token }
+        }).then(r => r.json())
+        console.log(`Devices from ${sdwan}:`, devices)
+        for (const device of devices.data) {
+          const fragment = template.content.cloneNode(true)
+          for (const el of fragment.querySelectorAll('[data-bind]')) {
+            el.data = device
+          }
+          for (const el of fragment.querySelectorAll('[data-text]')) {
+            const key = el.getAttribute('data-text')
+            const value = key?.split('.').reduce((o, k) => o?.[k], device)
+            if (value != null) el.textContent = value
+          }
+          tbody.appendChild(fragment)
+        }
+      })
+    }
+
+
     const cmlTemplate = document.querySelector('template#cml')
     const cmlTbody = cmlTemplate.parentElement
     cmlTemplate.remove()
