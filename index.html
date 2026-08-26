@@ -162,7 +162,7 @@
       const password = localStorage.getItem(`credentials/${sdwan}/password`)
       if (!username || !password) throw new Error(`Credentials for ${sdwan} is not found in localStorage. Please set them first.`)
       fetch(sdwan + '/dataservice/client/token', { credentials: 'include' }).then(async r => {
-        if (r.ok) return r.text()
+        if (r.ok && !r.headers.get('content-type')?.includes('text/html')) return r.text()
         await fetch(sdwan + '/j_security_check', {
           method: 'POST',
           credentials: 'include',
