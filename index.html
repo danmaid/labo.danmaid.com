@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/full-screen.css">
   <script src="js/dm-windows.js"></script>
   <script type="module" src="js/dm-terminal.mjs"></script>
+  <script src="js/dm-input-table-filter.js"></script>
 </head>
 
 <body class="full-screen" style="padding: 8px; display: flex; flex-direction: column;">
@@ -28,48 +29,11 @@
     <table>
       <thead style="position: sticky; top: 0; background-color: canvas;">
         <tr>
-          <th>Title<input type="search" oninput="updateFilter(this)"></th>
-          <th>Service<input type="search" oninput="updateFilter(this)"></th>
-          <th>Hostname<input type="search" oninput="updateFilter(this)"></th>
-          <th>IPv4<input type="search" oninput="updateFilter(this)"></th>
-          <th>IPv6<input type="search" oninput="updateFilter(this)"></th>
-          <script>
-            function updateFilter(input) {
-              const cellIndex = input.closest('td, th')?.cellIndex
-              if (!(cellIndex >= 0)) return
-              const table = input.closest('table')
-              const filters = table.$filters ??= []
-              filters[cellIndex] = input.value ? new RegExp(input.value, 'i') : null
-              applyFilters(table)
-
-            }
-            function applyFilters(table) {
-              const filters = table.$filters
-              if (!filters) return
-              for (const row of table.querySelectorAll('tbody tr')) {
-                if (filters.some((r, i) => r && !r.test(row.cells[i]?.textContent ?? ''))) {
-                  row.style.display = 'none'
-                  continue
-                }
-                row.style.display = ''
-              }
-            }
-            {
-              const table = document.currentScript.closest('table')
-              const observer = new MutationObserver(() => {
-                table.$applyScheduled ||= requestAnimationFrame(() => {
-                  table.$applyScheduled = null
-                  applyFilters(table)
-                })
-              })
-              addEventListener('DOMContentLoaded', () => {
-                for (const input of table.querySelectorAll('thead input[value]')) {
-                  updateFilter(input)
-                }
-                observer.observe(table.tBodies[0], { childList: true, subtree: true })
-              })
-            }
-          </script>
+          <th>Title<input type="search" is="dm-input-table-filter"></th>
+          <th>Service<input type="search" is="dm-input-table-filter"></th>
+          <th>Hostname<input type="search" is="dm-input-table-filter"></th>
+          <th>IPv4<input type="search" is="dm-input-table-filter"></th>
+          <th>IPv6<input type="search" is="dm-input-table-filter"></th>
         </tr>
       </thead>
       <tbody>
