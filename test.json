@@ -30,11 +30,11 @@
     "addresses": [
       {
         "family": "IPv6",
-        "address": "2400:4052:2962:5e00::1"
+        "address": "2400:4052:a860:6d00::1"
       },
       {
         "family": "IPv6",
-        "address": "fe80::e886:fa6:e43a:6da3"
+        "address": "fe80::75be:8d28:85fb:1e36"
       }
     ],
     "listeners": [
@@ -82,11 +82,11 @@
     "addresses": [
       {
         "family": "IPv6",
-        "address": "2400:4052:2962:5e00::3"
+        "address": "2400:4052:a860:6d00::3"
       },
       {
         "family": "IPv6",
-        "address": "fe80::fcca:ff04:d503:e885"
+        "address": "fe80::5e8b:53b8:71e0:deaa"
       }
     ],
     "listeners": [
