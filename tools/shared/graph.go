@@ -1,0 +1,2 @@
+type Node
+type Link

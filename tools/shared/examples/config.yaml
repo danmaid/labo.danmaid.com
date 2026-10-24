@@ -1,0 +1,41 @@
+topology:
+  console1:
+    links:
+      - uart1 -> tcp1
+      - uart1 -> websocket
+      - tcp1 -> uart1
+
+  console2:
+    links:
+      - uart2 -> websocket
+      - websocket -> uart2
+    xxx:
+      yyy: value
+      zzz: another_value
+    aaa: value
+
+  console3:
+    links:
+      - websocket -> console1
+      - console1 -> websocket
+
+endpoint:
+  uart1:
+    type: serial
+    device: /dev/ttyUSB0
+    baudrate: 115200
+
+  tcp1:
+    type: tcp-listener
+    listen: ":2001"
+
+  uart2:
+    type: serial
+    device: /dev/ttyUSB1
+    baudrate: 9600
+
+  websocket:
+    type: websocket-listener
+
+  console1:
+    type: topology
