@@ -1,14 +1,19 @@
 topology:
   console1:
     links:
-      - uart1 -> tcp1
-      - uart1 -> websocket
-      - tcp1 -> uart1
+      - source: uart1
+        destination: tcp1
+      - source: uart1
+        destination: websocket
+      - source: tcp1
+        destination: uart1
 
   console2:
     links:
-      - uart2 -> websocket
-      - websocket -> uart2
+      - source: uart2
+        destination: websocket
+      - source: websocket
+        destination: uart2
     xxx:
       yyy: value
       zzz: another_value
@@ -16,8 +21,10 @@ topology:
 
   console3:
     links:
-      - websocket -> console1
-      - console1 -> websocket
+      - source: websocket
+        destination: console1
+      - source: console1
+        destination: websocket
 
 endpoint:
   uart1:
