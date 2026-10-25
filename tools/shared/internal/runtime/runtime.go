@@ -4,14 +4,42 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/endpoint"
-	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/topology"
 )
+
+type Link struct {
+	Source      string `yaml:"source"`
+	Destination string `yaml:"destination"`
+}
+
+type Topology struct {
+	Links  []Link         `yaml:"links"`
+	Params map[string]any `yaml:"params"`
+}
 
 type Runtime struct {
 	Endpoints  map[string]endpoint.Endpoint
-	Topologies map[string]topology.Topology
+	Topologies map[string]Topology
+}
+
+func (r *Runtime) Endpoint(name string) (endpoint.Endpoint, bool) {
+	ep, ok := r.Endpoints[name]
+	return ep, ok
+}
+
+func (r *Runtime) ControlTopology(ctx context.Context, method string, name string, params endpoint.Params) (any, error) {
+	if !strings.EqualFold(method, "POST") {
+		return nil, fmt.Errorf("topology %s only supports POST", name)
+	}
+	if _, ok := r.Topologies[name]; !ok {
+		return nil, fmt.Errorf("topology %s not found", name)
+	}
+	if err := r.Connect(ctx, name, params); err != nil {
+		return nil, err
+	}
+	return map[string]any{"started": name}, nil
 }
 
 func (r *Runtime) Connect(ctx context.Context, topologyName string, params endpoint.Params) error {

@@ -15,7 +15,6 @@ import (
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/controlplane"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/endpoint"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/runtime"
-	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/topology"
 )
 
 func main() {
@@ -31,30 +30,26 @@ func main() {
 	registry := endpoint.NewRegistry()
 	rt := &runtime.Runtime{
 		Endpoints:  map[string]endpoint.Endpoint{},
-		Topologies: map[string]topology.Topology{},
+		Topologies: map[string]runtime.Topology{},
 	}
 
-	var websocketFactory *endpoint.FactoryEndpoint
 	for name, epCfg := range cfg.Endpoints {
 		ep, err := buildEndpoint(name, epCfg, registry)
 		if err != nil {
 			log.Fatalf("build endpoint %s: %v", name, err)
 		}
 		rt.Endpoints[name] = ep
-		if f, ok := ep.(*endpoint.FactoryEndpoint); ok && epCfg.Template != nil && epCfg.Template.Type == "websocket" {
-			websocketFactory = f
-		}
 	}
 
 	for name, tp := range cfg.Topologies {
-		links := make([]topology.Link, 0, len(tp.Links))
+		links := make([]runtime.Link, 0, len(tp.Links))
 		for _, l := range tp.Links {
-			links = append(links, topology.Link{Source: l.Source, Destination: l.Destination})
+			links = append(links, runtime.Link{Source: l.Source, Destination: l.Destination})
 		}
-		rt.Topologies[name] = topology.Topology{Links: links, Params: tp.Params}
+		rt.Topologies[name] = runtime.Topology{Links: links, Params: tp.Params}
 	}
 
-	srv := &controlplane.Server{Runtime: rt, WebSocketFactory: websocketFactory}
+	srv := &controlplane.Server{Runtime: rt}
 	log.Printf("shared listening on %s", *listenAddr)
 	if err := http.ListenAndServe(*listenAddr, srv.Handler()); err != nil {
 		log.Fatal(err)
@@ -80,7 +75,11 @@ func buildEndpoint(name string, cfg config.Endpoint, registry *endpoint.Registry
 			return nil, errors.New("factory endpoint requires template")
 		}
 		builder := buildFactoryBuilder(name, cfg)
-		return &endpoint.FactoryEndpoint{Name: name, Registry: registry, Build: builder}, nil
+		factory := &endpoint.FactoryEndpoint{Name: name, Registry: registry, Build: builder}
+		if cfg.Template.Type == "websocket" {
+			return endpoint.NewWebSocketFactoryEndpoint(name, factory, "/api/v1/endpoint/"), nil
+		}
+		return factory, nil
 	default:
 		return nil, fmt.Errorf("unsupported endpoint type %s", cfg.Type)
 	}

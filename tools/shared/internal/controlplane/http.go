@@ -1,31 +1,22 @@
 package controlplane
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/gorilla/websocket"
 
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/endpoint"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/runtime"
 )
 
 type Server struct {
-	Runtime          *runtime.Runtime
-	WebSocketFactory *endpoint.FactoryEndpoint
-}
-
-var wsUpgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool { return true },
+	Runtime *runtime.Runtime
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealth)
-	mux.HandleFunc("/api/v1/ws/", s.handleWebSocket)
 	mux.HandleFunc("/api/v1/endpoint/", s.handleEndpoint)
 	mux.HandleFunc("/api/v1/topology/", s.handleTopology)
 	return mux
@@ -35,30 +26,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }
 
-func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	if s.WebSocketFactory == nil {
-		writeError(w, http.StatusBadRequest, "websocket endpoint is not configured")
-		return
-	}
-	parts := splitPath(r.URL.Path, "/api/v1/ws/")
-	if len(parts) == 0 || parts[0] == "" {
-		writeError(w, http.StatusBadRequest, "missing websocket id")
-		return
-	}
-	id := parts[0]
-
-	conn, err := wsUpgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
-
-	s.WebSocketFactory.RegisterWithID(id, endpoint.NewWebSocketConnEndpoint(conn))
-}
-
 func (s *Server) handleEndpoint(w http.ResponseWriter, r *http.Request) {
 	parts := splitPath(r.URL.Path, "/api/v1/endpoint/")
 	if len(parts) == 0 || parts[0] == "" {
@@ -66,7 +33,7 @@ func (s *Server) handleEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := parts[0]
-	ep, ok := s.Runtime.Endpoints[name]
+	ep, ok := s.Runtime.Endpoint(name)
 	if !ok {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("endpoint %s not found", name))
 		return
@@ -77,6 +44,8 @@ func (s *Server) handleEndpoint(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		_ = json.NewDecoder(r.Body).Decode(&bodyParams)
 	}
+	bodyParams["__http_request"] = r
+	bodyParams["__http_response"] = w
 
 	res, err := ep.Control(r.Context(), endpoint.ControlRequest{
 		Method: r.Method,
@@ -87,30 +56,37 @@ func (s *Server) handleEndpoint(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if handled, _ := bodyParams["__http_response_handled"].(bool); handled {
+		return
+	}
 	writeJSON(w, http.StatusOK, res)
 }
 
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
 	parts := splitPath(r.URL.Path, "/api/v1/topology/")
 	if len(parts) == 0 || parts[0] == "" {
 		writeError(w, http.StatusBadRequest, "missing topology name")
 		return
 	}
 	name := parts[0]
-	params := endpoint.Params{}
+	bodyParams := endpoint.Params{}
 	if r.Body != nil {
 		defer r.Body.Close()
-		_ = json.NewDecoder(r.Body).Decode(&params)
+		_ = json.NewDecoder(r.Body).Decode(&bodyParams)
 	}
-	if err := s.Runtime.Connect(context.Background(), name, params); err != nil {
+	bodyParams["__http_request"] = r
+	bodyParams["__http_response"] = w
+
+	res, err := s.Runtime.ControlTopology(r.Context(), r.Method, name, bodyParams)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"started": name})
+	writeJSON(w, http.StatusOK, res)
 }
 
 func splitPath(path, prefix string) []string {
