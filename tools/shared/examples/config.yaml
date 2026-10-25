@@ -1,48 +1,40 @@
-topology:
-  console1:
-    links:
-      - source: uart1
-        destination: tcp1
-      - source: uart1
-        destination: websocket
-      - source: tcp1
-        destination: uart1
+endpoints:
+  websocket:
+    type: factory
+    template:
+      type: websocket
 
-  console2:
-    links:
-      - source: uart2
-        destination: websocket
-      - source: websocket
-        destination: uart2
-    xxx:
-      yyy: value
-      zzz: another_value
-    aaa: value
+  ssh:
+    type: factory
+    params:
+      args: ""
+    template:
+      type: exec
+      line: /bin/ssh ${args}
 
-  console3:
-    links:
-      - source: websocket
-        destination: console1
-      - source: console1
-        destination: websocket
+  messages:
+    type: exec
+    line: tail -f /var/log/messages
 
-endpoint:
   uart1:
     type: serial
     device: /dev/ttyUSB0
     baudrate: 115200
 
-  tcp1:
-    type: tcp-listener
-    listen: ":2001"
+topologies:
+  ssh:
+    links:
+      - source: ssh
+        destination: websocket
+      - source: websocket
+        destination: ssh
+    params:
+      ssh-id: ""
+      websocket-id: ""
 
-  uart2:
-    type: serial
-    device: /dev/ttyUSB1
-    baudrate: 9600
-
-  websocket:
-    type: websocket-listener
-
-  console1:
-    type: topology
+  messages:
+    links:
+      - source: messages
+        destination: websocket
+    params:
+      websocket-id: ""

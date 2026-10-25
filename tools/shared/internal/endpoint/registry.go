@@ -1,0 +1,80 @@
+package endpoint
+
+import (
+	"fmt"
+	"sort"
+	"sync"
+)
+
+type Registry struct {
+	mu     sync.RWMutex
+	items  map[string]Endpoint
+	names  map[string]string
+	counts map[string]int
+}
+
+func NewRegistry() *Registry {
+	return &Registry{
+		items:  make(map[string]Endpoint),
+		names:  make(map[string]string),
+		counts: make(map[string]int),
+	}
+}
+
+func (r *Registry) Register(name string, ep Endpoint) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.counts[name]++
+	id := fmt.Sprintf("%s-%d", name, r.counts[name])
+	r.items[id] = ep
+	r.names[id] = name
+	return id
+}
+
+func (r *Registry) RegisterWithID(name, id string, ep Endpoint) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items[id] = ep
+	r.names[id] = name
+}
+
+func (r *Registry) Get(name, id string) (Endpoint, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ep, ok := r.items[id]
+	if !ok {
+		return nil, false
+	}
+	if r.names[id] != name {
+		return nil, false
+	}
+	return ep, true
+}
+
+func (r *Registry) Delete(name, id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.items[id]; !ok {
+		return false
+	}
+	if r.names[id] != name {
+		return false
+	}
+	delete(r.items, id)
+	delete(r.names, id)
+	return true
+}
+
+func (r *Registry) List(name string) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ids := make([]string, 0)
+	for id, n := range r.names {
+		if n == name {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
