@@ -53,9 +53,28 @@ func (f *FactoryEndpoint) Control(ctx context.Context, req ControlRequest) (any,
 		if f.Build == nil {
 			return nil, fmt.Errorf("factory endpoint %s does not support POST", f.Name)
 		}
-		ep, err := f.Build(ctx, req.Params)
+		buildParams := Params{}
+		for k, v := range req.Params {
+			buildParams[k] = v
+		}
+		if _, ok := buildParams["id"]; !ok {
+			buildParams["id"] = f.Registry.ReserveID(f.Name)
+		}
+		ep, err := f.Build(ctx, buildParams)
 		if err != nil {
 			return nil, err
+		}
+		if id, ok := buildParams["id"].(string); ok && id != "" {
+			f.Registry.RegisterWithID(f.Name, id, ep)
+			res := map[string]any{"id": id}
+			if info, err := ep.Control(ctx, ControlRequest{Method: "GET", Params: req.Params}); err == nil {
+				if meta, ok := info.(map[string]any); ok {
+					if wsURL, ok := meta["ws_url"]; ok {
+						res["ws_url"] = wsURL
+					}
+				}
+			}
+			return res, nil
 		}
 		id := f.Registry.Register(f.Name, ep)
 		return map[string]any{"id": id}, nil
@@ -68,7 +87,7 @@ func (f *FactoryEndpoint) Control(ctx context.Context, req ControlRequest) (any,
 		if !ok {
 			return nil, fmt.Errorf("factory resource %s not found", id)
 		}
-		return ep.Control(ctx, ControlRequest{Method: "GET", Path: req.Path[1:], Params: req.Params})
+		return ep.Control(ctx, ControlRequest{Method: req.Method, Path: req.Path[1:], Params: req.Params})
 	case "DELETE":
 		if len(req.Path) < 1 {
 			return nil, fmt.Errorf("missing id")
@@ -77,6 +96,9 @@ func (f *FactoryEndpoint) Control(ctx context.Context, req ControlRequest) (any,
 		ep, ok := f.Registry.Get(f.Name, id)
 		if !ok {
 			return nil, fmt.Errorf("factory resource %s not found", id)
+		}
+		if len(req.Path) > 1 {
+			return ep.Control(ctx, ControlRequest{Method: req.Method, Path: req.Path[1:], Params: req.Params})
 		}
 		if closer, ok := ep.(interface{ Close() error }); ok {
 			_ = closer.Close()

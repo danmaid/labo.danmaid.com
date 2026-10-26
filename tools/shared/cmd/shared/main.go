@@ -5,14 +5,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 
+	httpadapter "github.com/danmaid/labo.danmaid.com/tools/shared/internal/adapter/http"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/config"
-	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/controlplane"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/endpoint"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/runtime"
 )
@@ -49,7 +48,7 @@ func main() {
 		rt.Topologies[name] = runtime.Topology{Links: links, Params: tp.Params}
 	}
 
-	srv := &controlplane.Server{Runtime: rt}
+	srv := &httpadapter.Server{Runtime: rt}
 	log.Printf("shared listening on %s", *listenAddr)
 	if err := http.ListenAndServe(*listenAddr, srv.Handler()); err != nil {
 		log.Fatal(err)
@@ -76,9 +75,6 @@ func buildEndpoint(name string, cfg config.Endpoint, registry *endpoint.Registry
 		}
 		builder := buildFactoryBuilder(name, cfg)
 		factory := &endpoint.FactoryEndpoint{Name: name, Registry: registry, Build: builder}
-		if cfg.Template.Type == "websocket" {
-			return endpoint.NewWebSocketFactoryEndpoint(name, factory, "/api/v1/endpoint/"), nil
-		}
 		return factory, nil
 	default:
 		return nil, fmt.Errorf("unsupported endpoint type %s", cfg.Type)
@@ -88,8 +84,9 @@ func buildEndpoint(name string, cfg config.Endpoint, registry *endpoint.Registry
 func buildFactoryBuilder(name string, cfg config.Endpoint) endpoint.Builder {
 	tpl := *cfg.Template
 	if tpl.Type == "websocket" {
-		return func(context.Context, endpoint.Params) (endpoint.Endpoint, error) {
-			return &discardEndpoint{}, nil
+		return func(_ context.Context, params endpoint.Params) (endpoint.Endpoint, error) {
+			id, _ := params["id"].(string)
+			return endpoint.NewWebSocketEndpoint(name, id, "/api/v1/endpoint/"), nil
 		}
 	}
 	return func(ctx context.Context, params endpoint.Params) (endpoint.Endpoint, error) {
@@ -131,28 +128,4 @@ func renderTemplate(input string, params endpoint.Params) string {
 		result = strings.ReplaceAll(result, "${"+k+"}", fmt.Sprint(v))
 	}
 	return result
-}
-
-type discardEndpoint struct{}
-
-func (d *discardEndpoint) Resolve(context.Context, endpoint.Params) (io.ReadWriteCloser, error) {
-	return &discardRWC{}, nil
-}
-
-func (d *discardEndpoint) Control(context.Context, endpoint.ControlRequest) (any, error) {
-	return map[string]any{"type": "discard"}, nil
-}
-
-type discardRWC struct{}
-
-func (d *discardRWC) Read(_ []byte) (int, error) {
-	return 0, io.EOF
-}
-
-func (d *discardRWC) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
-func (d *discardRWC) Close() error {
-	return nil
 }

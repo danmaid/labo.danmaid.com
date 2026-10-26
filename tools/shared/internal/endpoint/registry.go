@@ -32,6 +32,14 @@ func (r *Registry) Register(name string, ep Endpoint) string {
 	return id
 }
 
+func (r *Registry) ReserveID(name string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.counts[name]++
+	return fmt.Sprintf("%s-%d", name, r.counts[name])
+}
+
 func (r *Registry) RegisterWithID(name, id string, ep Endpoint) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

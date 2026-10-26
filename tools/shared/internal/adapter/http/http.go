@@ -1,4 +1,4 @@
-package controlplane
+package httpadapter
 
 import (
 	"encoding/json"

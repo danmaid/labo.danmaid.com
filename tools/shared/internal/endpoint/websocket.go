@@ -50,20 +50,21 @@ type WebSocketConnEndpoint struct {
 	session *websocketSession
 }
 
-type WebSocketFactoryEndpoint struct {
+type WebSocketEndpoint struct {
 	Name     string
-	Factory  *FactoryEndpoint
+	ID       string
 	BasePath string
+	session  *websocketSession
 	upgrader websocket.Upgrader
 }
 
-func NewWebSocketFactoryEndpoint(name string, factory *FactoryEndpoint, basePath string) *WebSocketFactoryEndpoint {
+func NewWebSocketEndpoint(name, id, basePath string) *WebSocketEndpoint {
 	if basePath == "" {
 		basePath = "/api/v1/endpoint/"
 	}
-	return &WebSocketFactoryEndpoint{
+	return &WebSocketEndpoint{
 		Name:     name,
-		Factory:  factory,
+		ID:       id,
 		BasePath: basePath,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(_ *http.Request) bool { return true },
@@ -87,46 +88,30 @@ func (w *WebSocketConnEndpoint) Close() error {
 	return w.session.Close()
 }
 
-func (w *WebSocketFactoryEndpoint) Resolve(ctx context.Context, p Params) (io.ReadWriteCloser, error) {
-	if w.Factory == nil {
-		return nil, fmt.Errorf("websocket endpoint is not configured")
+func (w *WebSocketEndpoint) Resolve(_ context.Context, _ Params) (io.ReadWriteCloser, error) {
+	if w.session == nil {
+		return nil, fmt.Errorf("websocket %s is not connected", w.ID)
 	}
-	return w.Factory.Resolve(ctx, p)
+	return w.session, nil
 }
 
-func (w *WebSocketFactoryEndpoint) Control(ctx context.Context, req ControlRequest) (any, error) {
-	if w.Factory == nil {
-		return nil, fmt.Errorf("websocket endpoint is not configured")
-	}
+func (w *WebSocketEndpoint) Control(_ context.Context, req ControlRequest) (any, error) {
 	if len(req.Path) > 0 && req.Path[0] == "connect" {
 		return w.handleConnect(req)
 	}
-	if req.Method == http.MethodPost && len(req.Path) == 0 {
-		res, err := w.Factory.Control(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		m, ok := res.(map[string]any)
-		if !ok {
-			return res, nil
-		}
-		id, _ := m["id"].(string)
-		if id != "" {
-			m["ws_url"] = w.buildConnectURL(id)
-		}
-		return m, nil
+	if req.Method == http.MethodGet && len(req.Path) == 0 {
+		return map[string]any{"id": w.ID, "ws_url": w.buildConnectURL(), "connected": w.session != nil}, nil
 	}
-	return w.Factory.Control(ctx, req)
+	return nil, fmt.Errorf("websocket endpoint does not support method %s", req.Method)
 }
 
-func (w *WebSocketFactoryEndpoint) handleConnect(req ControlRequest) (any, error) {
+func (w *WebSocketEndpoint) handleConnect(req ControlRequest) (any, error) {
 	if req.Method != http.MethodGet {
 		return nil, fmt.Errorf("websocket connect only supports GET")
 	}
-	if len(req.Path) < 2 || req.Path[1] == "" {
-		return nil, fmt.Errorf("missing websocket id")
+	if len(req.Path) > 1 && req.Path[1] != w.ID {
+		return nil, fmt.Errorf("websocket id mismatch")
 	}
-	id := req.Path[1]
 	httpReq, _ := req.Params["__http_request"].(*http.Request)
 	httpRes, _ := req.Params["__http_response"].(http.ResponseWriter)
 	if httpReq == nil || httpRes == nil {
@@ -137,12 +122,12 @@ func (w *WebSocketFactoryEndpoint) handleConnect(req ControlRequest) (any, error
 	if err != nil {
 		return nil, err
 	}
-	w.Factory.RegisterWithID(id, NewWebSocketConnEndpoint(conn))
+	w.session = &websocketSession{conn: conn}
 	req.Params["__http_response_handled"] = true
-	return map[string]any{"connected": id}, nil
+	return map[string]any{"connected": w.ID}, nil
 }
 
-func (w *WebSocketFactoryEndpoint) buildConnectURL(id string) string {
+func (w *WebSocketEndpoint) buildConnectURL() string {
 	base := strings.TrimRight(w.BasePath, "/")
-	return fmt.Sprintf("%s/%s/connect/%s", base, w.Name, id)
+	return fmt.Sprintf("%s/%s/%s/connect", base, w.Name, w.ID)
 }
