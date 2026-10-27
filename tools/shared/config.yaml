@@ -1,0 +1,47 @@
+ssh:
+  links:
+    - source: ssh
+      destination: websocket
+    - source: websocket
+      destination: ssh
+  params:
+    ssh: "{id}"
+    websocket: "{id}"
+
+messages:
+  links:
+    - source: messages
+      destination: websocket
+  params:
+    websocket: "{id}"
+
+endpoints:
+  websocket:
+    type: factory
+    template:
+      type: websocket
+
+  serial:
+    type: factory
+    template:
+      type: exec
+      line: /bin/picocom ${args}
+    params:
+      args: ""
+
+  ssh:
+    type: factory
+    template:
+      type: exec
+      line: /bin/ssh ${args}
+    params:
+      args: ""
+
+  messages:
+    type: exec
+    line: /bin/tail -f /var/log/messages
+
+  uart1:
+    type: serial
+    device: /dev/ttyUSB0
+    baudrate: 115200

@@ -7,12 +7,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
-	httpadapter "github.com/danmaid/labo.danmaid.com/tools/shared/internal/adapter/http"
-	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/config"
-	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/endpoint"
+	"github.com/danmaid/labo.danmaid.com/tools/shared/endpoint"
 	"github.com/danmaid/labo.danmaid.com/tools/shared/internal/runtime"
 )
 
@@ -26,11 +23,7 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	registry := endpoint.NewRegistry()
-	rt := &runtime.Runtime{
-		Endpoints:  map[string]endpoint.Endpoint{},
-		Topologies: map[string]runtime.Topology{},
-	}
+	topologies := map[string]Topology{}
 
 	for name, epCfg := range cfg.Endpoints {
 		ep, err := buildEndpoint(name, epCfg, registry)
@@ -53,14 +46,6 @@ func main() {
 	if err := http.ListenAndServe(*listenAddr, srv.Handler()); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func loadConfig(path string) (config.Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return config.Config{}, err
-	}
-	return config.ParseYAML(data)
 }
 
 func buildEndpoint(name string, cfg config.Endpoint, registry *endpoint.Registry) (endpoint.Endpoint, error) {
