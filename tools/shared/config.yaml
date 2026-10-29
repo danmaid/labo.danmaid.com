@@ -19,6 +19,10 @@ topologies:
       websocket: "{id}"
 
 endpoints:
+  serial1:
+    type: file
+    path: /dev/ttyUSB0
+
   websocket:
     type: factory
     template:
@@ -43,7 +47,3 @@ endpoints:
   messages:
     type: exec
     line: /bin/tail -f /var/log/messages
-
-  serial1:
-    type: file
-    path: /dev/ttyUSB0

@@ -28,7 +28,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(cfg.BasePath+"/endpoints", handleEndpoints)
+	mux.HandleFunc(cfg.BasePath+"/endpoints/{name}", srv.handleEndpoints)
 	for name, topo := range srv.Topologies {
 		mux.HandleFunc(cfg.BasePath+"/"+name, topo.httpHandler)
 	}
@@ -37,9 +37,6 @@ func main() {
 	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func handleEndpoints(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Topology) httpHandler(w http.ResponseWriter, r *http.Request) {

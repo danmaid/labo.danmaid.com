@@ -8,20 +8,20 @@ import (
 
 type Registry struct {
 	mu     sync.RWMutex
-	items  map[string]Endpoint
+	items  map[string]DataEndpoint
 	names  map[string]string
 	counts map[string]int
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		items:  make(map[string]Endpoint),
+		items:  make(map[string]DataEndpoint),
 		names:  make(map[string]string),
 		counts: make(map[string]int),
 	}
 }
 
-func (r *Registry) Register(name string, ep Endpoint) string {
+func (r *Registry) Register(name string, ep DataEndpoint) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -40,14 +40,14 @@ func (r *Registry) ReserveID(name string) string {
 	return fmt.Sprintf("%s-%d", name, r.counts[name])
 }
 
-func (r *Registry) RegisterWithID(name, id string, ep Endpoint) {
+func (r *Registry) RegisterWithID(name, id string, ep DataEndpoint) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.items[id] = ep
 	r.names[id] = name
 }
 
-func (r *Registry) Get(name, id string) (Endpoint, bool) {
+func (r *Registry) Get(name, id string) (DataEndpoint, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	ep, ok := r.items[id]

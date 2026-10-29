@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-type Builder func(ctx context.Context, params Params) (Endpoint, error)
+type Builder func(ctx context.Context, params Params) (DataEndpoint, error)
 
 type FactoryEndpoint struct {
 	Name     string
@@ -42,7 +42,7 @@ func (f *FactoryEndpoint) Resolve(ctx context.Context, p Params) (io.ReadWriteCl
 	return ep.Resolve(ctx, p)
 }
 
-func (f *FactoryEndpoint) RegisterWithID(id string, ep Endpoint) {
+func (f *FactoryEndpoint) RegisterWithID(id string, ep DataEndpoint) {
 	f.Registry.RegisterWithID(f.Name, id, ep)
 }
 
