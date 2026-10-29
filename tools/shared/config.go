@@ -6,14 +6,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Config struct {
+	Listen     string              `yaml:"listen"`
+	BasePath   string              `yaml:"basePath"`
+	Topologies map[string]Topology `yaml:"topologies"`
+	Endpoints  map[string]Endpoint `yaml:"endpoints"`
+}
+
+type Topology struct {
+	Links  []Link         `yaml:"links"`
+	Params map[string]any `yaml:"params"`
+}
+type Link struct {
+	Source      string `yaml:"source"`
+	Destination string `yaml:"destination"`
+}
 type Endpoint struct {
 	Type  string         `yaml:"type"`
 	Extra map[string]any `yaml:",inline"`
-}
-
-type Config struct {
-	Endpoints  map[string]Endpoint `yaml:"endpoints"`
-	Topologies map[string]Topology `yaml:",inline"`
 }
 
 func loadConfig(path string) (Config, error) {
@@ -21,7 +31,11 @@ func loadConfig(path string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return ParseYAML(data)
+	cfg, err := ParseYAML(data)
+	if err != nil {
+		return Config{}, err
+	}
+	return setDefaults(cfg), nil
 }
 
 func ParseYAML(data []byte) (Config, error) {
@@ -30,4 +44,11 @@ func ParseYAML(data []byte) (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+func setDefaults(cfg Config) Config {
+	if cfg.Listen == "" {
+		cfg.Listen = ":8080"
+	}
+	return cfg
 }

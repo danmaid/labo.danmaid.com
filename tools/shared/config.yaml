@@ -1,19 +1,22 @@
-ssh:
-  links:
-    - source: ssh
-      destination: websocket
-    - source: websocket
-      destination: ssh
-  params:
-    ssh: "{id}"
-    websocket: "{id}"
+listen: ":8080"
+basePath: "/api/v1"
+topologies:
+  ssh:
+    links:
+      - source: ssh
+        destination: websocket
+      - source: websocket
+        destination: ssh
+    params:
+      ssh: "{id}"
+      websocket: "{id}"
 
-messages:
-  links:
-    - source: messages
-      destination: websocket
-  params:
-    websocket: "{id}"
+  messages:
+    links:
+      - source: messages
+        destination: websocket
+    params:
+      websocket: "{id}"
 
 endpoints:
   websocket:
@@ -41,7 +44,6 @@ endpoints:
     type: exec
     line: /bin/tail -f /var/log/messages
 
-  uart1:
-    type: serial
-    device: /dev/ttyUSB0
-    baudrate: 115200
+  serial1:
+    type: file
+    path: /dev/ttyUSB0
