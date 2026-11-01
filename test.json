@@ -9,7 +9,7 @@
       },
       {
         "family": "IPv6",
-        "address": "2400:4052:2962:5e00:2eff:65ff:fe1a:d4ab"
+        "address": "2400:4052:a860:6d00:2eff:65ff:fe1a:d4ab"
       },
       {
         "family": "IPv6",
@@ -129,7 +129,7 @@
     "addresses": [
       {
         "family": "IPv6",
-        "address": "2400:4052:2962:5e00::1:1"
+        "address": "2400:4052:a860:6d00::1:1"
       }
     ],
     "listeners": [
