@@ -61,7 +61,9 @@
         </tr>
         <tr id="9f7b44f1-4267-492f-a9fc-49451863b1dd">
           <td>DL380 Gen10</td>
-          <td></td>
+          <td>FE80::9640:C9FF:FE21:E014
+            <a href="https://[FE80::9640:C9FF:FE21:E014]" target="_blank">iLO5</a>
+          </td>
           <td>192.168.1.44
             <a href="https://192.168.1.44" target="_blank">iLO5</a>
           </td>
@@ -134,6 +136,25 @@
           <td>192.168.1.27
             <a href="https://192.168.1.27:9090" target="_blank">Cockpit</a>
           </td>
+          <td>
+            <textarea rows="1" style="field-sizing: content; min-width: 15em"></textarea>
+            <script>
+              {
+                const parent = document.currentScript.parentElement
+                const id = parent.closest('[id]').id
+                const textarea = parent.querySelector('textarea')
+                textarea.value = localStorage.getItem(id) || ''
+                textarea.addEventListener('input', () => {
+                  localStorage.setItem(id, textarea.value)
+                })
+              }
+            </script>
+          </td>
+        </tr>
+        <tr id="new-row">
+          <td>debian.region1</td>
+          <td>2400:4052:a860:6df0:c5a3:bdac:e8da:a667</td>
+          <td></td>
           <td>
             <textarea rows="1" style="field-sizing: content; min-width: 15em"></textarea>
             <script>
