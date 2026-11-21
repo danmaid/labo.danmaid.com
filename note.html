@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>note</title>
+</head>
+
+<body>
+  <pre>
+端末 -> SSH -> debian.region1 -> DevContainer -> github.com/danmaid-llc/shared.git
+cml3 -> Github Runner -> github.com/danmaid-llc
+github.com/danmaid-llc -> Runner -> github.com/danmaid-llc/shared.git
+Github Actions -> cml3 -> systemd/shared.service
+cml3.danmaid.com:6901 on Gateway -> cml3 -> systemd/shared.service -> tty
+wss://cml3.danmaid.com:6901/serial/ttyACM0 -> cml3 -> systemd/shared.service -> /dev/ttyACM0
+remote-serial.html -> wss://cml3.danmaid.com:6901/serial/ttyACM0
+</pre>
+</body>
+
+</html>
