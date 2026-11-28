@@ -87,39 +87,48 @@
           <td><textarea is="dm-memo" id="084ff085-e58a-4c3d-9a35-f2d3356f66c1"></textarea></td>
         </tr>
         <tr>
-          <td>Region1-L2</td>
+          <td>Region1-L2#1</td>
           <td></td>
           <td></td>
           <td><textarea is="dm-memo" id="40f540c2-79a7-4f4d-be68-ef827aa5040f"></textarea></td>
           <td>
-            <button>cml3:ttyACM0</button>
-            <script>
-              {
-                const parent = document.currentScript.parentElement
-                const button = parent.querySelector('button')
-                button.addEventListener('click', () => {
-                  const ws = new WebSocket('wss://cml3.danmaid.com:6901/serial/ttyACM0')
-                  ws.binaryType = 'arraybuffer'
-                  const term = document.createElement('dm-terminal')
-
-                  ws.addEventListener('open', () => console.log('WebSocket connection opened'))
-                  ws.addEventListener('message', (e) => console.log('Received message:', e.data))
-                  ws.addEventListener('close', () => console.log('WebSocket connection closed'))
-                  ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
-
-                  const encoder = new TextEncoder()
-                  ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
-                  term.onData(data => ws.send(encoder.encode(data)))
-
-                  const win = document.createElement('dm-window')
-                  win.style.width = '800px'
-                  win.style.height = '600px'
-                  win.setAttribute('title', 'cml3:ttyACM0')
-                  win.appendChild(term)
-                  document.querySelector('dm-windows').appendChild(win)
-                })
-              }
-            </script>
+            <button onclick="openSerialTerminal('wss://cml3.danmaid.com:6901/serial/ttyACM0')">cml3:ttyACM0</button>
+          </td>
+        </tr>
+        <tr>
+          <td>Region1-Mgmt</td>
+          <td></td>
+          <td></td>
+          <td><textarea is="dm-memo" id="ba83dc5d-8986-4fd8-bc7a-b52ae427733f"></textarea></td>
+          <td>
+            <button onclick="openSerialTerminal('wss://cml3.danmaid.com:6901/serial/ttyACM1')">cml3:ttyACM1</button>
+          </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td><textarea is="dm-memo" id="30339a82-fc39-4dc2-a51d-b034128da32c"></textarea></td>
+          <td>
+            <button onclick="openSerialTerminal('wss://cml3.danmaid.com:6901/serial/ttyACM2')">cml3:ttyACM2</button>
+          </td>
+        </tr>
+        <tr>
+          <td>Region1-L2#2</td>
+          <td></td>
+          <td></td>
+          <td><textarea is="dm-memo" id="cbad42c2-5ab2-4d9e-b6dd-18e80df02486"></textarea></td>
+          <td>
+            <button onclick="openSerialTerminal('wss://cml3.danmaid.com:6901/serial/ttyACM3')">cml3:ttyACM3</button>
+          </td>
+        </tr>
+        <tr>
+          <td>Region1-L3</td>
+          <td></td>
+          <td></td>
+          <td><textarea is="dm-memo" id="89d2bc23-40a0-4c0f-a1f4-ba9810f802cb"></textarea></td>
+          <td>
+            <button onclick="openSerialTerminal('wss://cml3.danmaid.com:6901/serial/ttyACM4')">cml3:ttyACM4</button>
           </td>
         </tr>
     </table>
@@ -478,6 +487,28 @@
         }
       }
     }, { extends: 'textarea' })
+
+    function openSerialTerminal(url) {
+      const ws = new WebSocket(url)
+      ws.binaryType = 'arraybuffer'
+      const term = document.createElement('dm-terminal')
+
+      ws.addEventListener('open', () => console.log('WebSocket connection opened'))
+      ws.addEventListener('message', (e) => console.log('Received message:', e.data))
+      ws.addEventListener('close', () => console.log('WebSocket connection closed'))
+      ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
+
+      const encoder = new TextEncoder()
+      ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+      term.onData(data => ws.send(encoder.encode(data)))
+
+      const win = document.createElement('dm-window')
+      win.style.width = '800px'
+      win.style.height = '600px'
+      win.setAttribute('title', url)
+      win.appendChild(term)
+      document.querySelector('dm-windows').appendChild(win)
+    }
   </script>
 </body>
 
