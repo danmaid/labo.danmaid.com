@@ -151,9 +151,9 @@
             </script>
           </td>
         </tr>
-        <tr id="new-row">
-          <td>debian.region1</td>
-          <td>2400:4052:a860:6df0:c5a3:bdac:e8da:a667</td>
+        <tr id="40f540c2-79a7-4f4d-be68-ef827aa5040f">
+          <td>Region1-L2</td>
+          <td></td>
           <td></td>
           <td>
             <textarea rows="1" style="field-sizing: content; min-width: 15em"></textarea>
@@ -165,6 +165,36 @@
                 textarea.value = localStorage.getItem(id) || ''
                 textarea.addEventListener('input', () => {
                   localStorage.setItem(id, textarea.value)
+                })
+              }
+            </script>
+          </td>
+          <td>
+            <button>cml3:ttyACM0</button>
+            <script>
+              {
+                const parent = document.currentScript.parentElement
+                const button = parent.querySelector('button')
+                button.addEventListener('click', () => {
+                  const ws = new WebSocket('wss://cml3.danmaid.com:6901/serial/ttyACM0')
+                  ws.binaryType = 'arraybuffer'
+                  const term = document.createElement('dm-terminal')
+
+                  ws.addEventListener('open', () => console.log('WebSocket connection opened'))
+                  ws.addEventListener('message', (e) => console.log('Received message:', e.data))
+                  ws.addEventListener('close', () => console.log('WebSocket connection closed'))
+                  ws.addEventListener('error', (e) => console.error('WebSocket error:', e))
+
+                  const encoder = new TextEncoder()
+                  ws.addEventListener('message', (e) => term.write(e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data))
+                  term.onData(data => ws.send(encoder.encode(data)))
+
+                  const win = document.createElement('dm-window')
+                  win.style.width = '800px'
+                  win.style.height = '600px'
+                  win.setAttribute('title', 'cml3:ttyACM0')
+                  win.appendChild(term)
+                  document.querySelector('dm-windows').appendChild(win)
                 })
               }
             </script>
